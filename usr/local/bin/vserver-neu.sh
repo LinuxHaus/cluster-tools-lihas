@@ -58,7 +58,7 @@ drbdadm -- -o primary vs_$VSNAME
 
 mkfs.ext4 -L vs_$VSNAME /dev/drbd$DRBD
 mount /dev/drbd$DRBD /mnt
-vserver $VSNAME build --context $CONTEXT --interface $VSNAME=$IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m rsync -- -d $DEBIANDIST --source $VSERVER_TEMPLATE
+vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m rsync -- -d $DEBIANDIST --source $VSERVER_TEMPLATE
 cat $VSERVER_TEMPLATE/etc/apt/sources.list > $VSERVER_BASE/$VSNAME/etc/apt/sources.list
 sed -i '/tmpfs/d' /etc/vservers/$VSNAME/fstab
 touch /etc/vservers/$VSNAME/interfaces/0/nodev
@@ -120,7 +120,6 @@ cat <<-EOF | cibadmin -M -p
             <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-nic" name="nic" value="br0"/>
             <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-cidr_netmask" name="cidr_netmask" value="16"/>
             <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-broadcast" name="broadcast" value="10.0.255.255"/>
-            <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-iflabel" name="iflabel" value="$VSNAME"/>
           </instance_attributes>
           <operations id="res_IPaddr2_ip_$VSNAME-operations">
             <op interval="0" id="op-res_IPaddr2_ip_$VSNAME-start" name="start" timeout="20"/>
