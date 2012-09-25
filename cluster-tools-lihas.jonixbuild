@@ -1,0 +1,44 @@
+#!/bin/sh
+NAME="cluster-tools-lihas"
+# !!! VERSION udn BUILD werden im Makefile im selben Verzeichnis gesetzt.
+VERSION=${VERSION:-1.1}
+BUILD=${BUILD:-1}
+shortdesc="Cluster Tools LiHAS"
+longdesc="Tools to create vserver/kvm on lvm/drbd-cluster.
+Exchange ssh-keys, edit /etc/ha.d/ha.cf, edit
+/etc/cluster-tools-lihas.conf and create volumegroups ala
+vg_\$hostname to make the tools work. Also, heartbeat-daemon has to up and running."
+section=admin
+author="Adrian Reyer <are@lihas.de>"
+website="http://www.lihas.de/"
+ARCH=all # i686, noarch, fw (firmware)
+depends="heartbeat2-scripts-lihas"
+#suggests=""
+conffiles="/etc/cluster-tools-lihas.conf"
+copyright=GPL
+cat << EOF > $changelog
+$NAME (1.2-1) 
+
+ * neu: vserver-add-disk.sh
+
+-- are <lihas@lihas.de> 2012-09-25
+$NAME (1.1-1) 
+
+ * VServer build Methode debootstrap statt rsync
+
+-- are <lihas@lihas.de> 2012-08-24
+$NAME (1.0-1) 
+
+ * Initales Paket gebaut.
+
+-- jsc <lihas@lihas.de> 2012-08-21
+EOF
+
+build () {
+cp -a $CWD/etc $PKG/
+cp -a $CWD/usr $PKG/
+$FAKEROOT chmod 755 $PKG/usr/local/bin/kvm-neu.sh
+$FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-neu.sh
+$FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-add-disk.sh
+
+}
