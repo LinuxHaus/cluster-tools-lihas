@@ -1,7 +1,7 @@
 #!/bin/sh
 NAME="cluster-tools-lihas"
 # !!! VERSION udn BUILD werden im Makefile im selben Verzeichnis gesetzt.
-VERSION=${VERSION:-1.1}
+VERSION=${VERSION:-1.2}
 BUILD=${BUILD:-1}
 shortdesc="Cluster Tools LiHAS"
 longdesc="Tools to create vserver/kvm on lvm/drbd-cluster.
@@ -35,10 +35,10 @@ $NAME (1.0-1)
 EOF
 
 build () {
-cp -a $CWD/etc $PKG/
-cp -a $CWD/usr $PKG/
-$FAKEROOT chmod 755 $PKG/usr/local/bin/kvm-neu.sh
-$FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-neu.sh
-$FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-add-disk.sh
+cp -a $CWD/etc $PKG/ || exit 1
+cp -a $CWD/usr $PKG/ || exit 1
+$FAKEROOT chmod 755 $PKG/usr/local/bin/kvm-neu.sh || exit 1
+$FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-neu.sh || exit 1
+$FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-add-disk.sh || exit 1
 
 }

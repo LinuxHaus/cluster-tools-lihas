@@ -59,7 +59,12 @@ drbdadm -- -o primary $RESNAME
 
 mkfs.ext4 -L $RESNAME /dev/drbd$DRBD
 mount /dev/drbd$DRBD /mnt
-mv $VSERVER_BASE/$VSNAME$MNTPOINT/. /mnt/
+#mv $VSERVER_BASE/$VSNAME$MNTPOINT/. /mnt/
+rsync  -rlHpogDtSxAX --numeric-ids $VSERVER_BASE/$VSNAME$MNTPOINT/ /mnt/
+if [ $? -eq 0 ]; then
+	rm -rf $VSERVER_BASE/$VSNAME$MNTPOINT/*
+fi
+
 umount /mnt 
 
 cat <<EOF | crm configure
@@ -80,7 +85,7 @@ EOF
 cat <<EOF | crm configure
 primitive res_fs_$RESNAME ocf:heartbeat:Filesystem \
         params device="/dev/drbd$DRBD" directory="$VSERVER_BASE/$VSNAME$MNTPOINT" fstype="ext4" options="noatime,stripe=64,barrier=0" \
-        operations \$id="res_$RESNAME-operations" \
+        operations \$id="res_fs_$RESNAME-operations" \
         op start interval="0" timeout="600" \
         op stop interval="0" timeout="60" \
         op monitor interval="20" timeout="40" start-delay="0" \
@@ -89,6 +94,8 @@ primitive res_fs_$RESNAME ocf:heartbeat:Filesystem \
 commit
 EOF
 
-EDITOR="sed -i '/^group grp_'$VSNAME'/,/[^\\]/{s/ res_VServer/ res_'$RESNAME' res_VServer/}'" crm configure edit
-crm configure manage res_fs_$RESNAME
+crm resource stop res_VServer-lihas_vs_$VSNAME
+EDITOR="sed -i '/^group grp_'$VSNAME' /,/[^\\]/{s/ res_VServer/ res_fs_'$RESNAME' res_VServer/}'" crm configure edit
+crm resource manage res_fs_$RESNAME
+crm resource start res_VServer-lihas_vs_$VSNAME
 

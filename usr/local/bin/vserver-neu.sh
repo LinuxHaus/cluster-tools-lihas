@@ -25,8 +25,8 @@ DRBDPORT=$(printf "%02i" $DRBD)
 
 DUMMY=10
 
-lvcreate -L$SIZE -n vs_$VSNAME vg_$HOST1
-ssh $HOST2 lvcreate -L$SIZE -n vs_$VSNAME vg_$HOST2
+lvcreate -L$SIZE -n vs_$VSNAME $VG1
+ssh $HOST2 lvcreate -L$SIZE -n vs_$VSNAME $VG2
 
 cat <<-EOF > /etc/drbd.d/vs_$VSNAME.res
 resource vs_$VSNAME {  
@@ -58,7 +58,7 @@ drbdadm -- -o primary vs_$VSNAME
 
 mkfs.ext4 -L vs_$VSNAME /dev/drbd$DRBD
 mount /dev/drbd$DRBD /mnt
-vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m rsync -- -d $DEBIANDIST --source $VSERVER_TEMPLATE
+vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m debootstrap -- -d $DEBIANDIST
 cat $VSERVER_TEMPLATE/etc/apt/sources.list > $VSERVER_BASE/$VSNAME/etc/apt/sources.list
 sed -i '/tmpfs/d' /etc/vservers/$VSNAME/fstab
 touch /etc/vservers/$VSNAME/interfaces/0/nodev
