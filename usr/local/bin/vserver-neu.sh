@@ -219,8 +219,8 @@ cat <<-EOF | cibadmin -M -p
     <constraints>
       <rsc_location id="loc_ms_$VSNAME-$HOST1" rsc="ms_$VSNAME" node="$HOST1" score="2"/>
       <rsc_location id="loc_ms_$VSNAME-$HOST2" rsc="ms_$VSNAME" node="$HOST2" score="0"/>
-      <rsc_colocation id="col_res_fs_$VSNAME-ms_$VSNAME" score="INFINITY" with-rsc-role="Master" rsc="res_fs_$VSNAME" with-rsc="ms_$VSNAME"/>
-      <rsc_order id="ord_ms_$VSNAME-res_fs_$VSNAME" score="INFINITY" first-action="promote" then-action="start" first="ms_$VSNAME" then="res_fs_$VSNAME"/>
+      <rsc_colocation id="col_grp_$VSNAME-ms_$VSNAME" score="INFINITY" with-rsc-role="Master" rsc="grp_$VSNAME" with-rsc="ms_$VSNAME"/>
+      <rsc_order id="ord_ms_$VSNAME-grp_$VSNAME" score="INFINITY" first-action="promote" then-action="start" first="ms_$VSNAME" then="grp_$VSNAME"/>
     </constraints>
   </configuration>
 EOF
