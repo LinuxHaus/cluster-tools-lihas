@@ -13,6 +13,74 @@ KVMNAME=$1
 SIZE=$2
 VIRSHINSTANCES="qemu:///system qemu+ssh://$HOST2/system"
 
+
+# IF Abfragen nach dem installierten Software, die benoetigt wird
+if !([ -e /usr/bin/which ]) ; then
+        echo "which ist nicht installiert!!!"
+	exit 1
+fi
+
+if !([ -e $(which parted) ]) ; then
+	echo "Please Install parted"
+	exit 1
+fi
+
+if !([ -e $(which crm) ]) ; then
+	echo "Please Install crm"
+	exit 1
+fi
+
+if !([ -e $(which drbdadm) ]) ; then
+	echo "Please Install drbd"
+	exit 1
+fi
+
+if !([ -e $(which awk) ]) ; then
+	echo "Please Install awk"
+	exit 1
+fi
+
+if !([ -e $(which sort) ]) ; then
+	echo "Please Install sort"
+	exit 1
+fi
+
+if !([ -e $(which tail) ]) ; then
+	echo "Please Install tail"
+	exit 1
+fi
+
+if !([ -e $(which printf) ]) ; then
+	echo "Please Install printf"
+	exit 1
+fi
+
+
+if !([ -e $(which ssh) ]) ; then
+	echo "Please Install openssh"
+	exit 1
+fi
+
+if !([ -e $(which lvcreate) ]) ; then
+	echo "Please Install lvm2"
+	exit 1
+fi
+
+if !([ -e $(which rsync) ]) ; then
+	echo "Please Install rsync"
+	exit 1
+fi
+
+if !([ -e $(which mktemp) ]) ; then
+	echo "Please Install mktemp"
+	exit 1
+fi
+
+if !([ -e $(which virsh) ]) ; then
+	echo "Please Install libvirt-bin"
+	exit 1
+fi
+
 if [ ga$3 == ga ]; then
   # Naechstes freies DRBD
   DRBD=$(($(awk '$1 ~ /^device$/ && $2 ~ /^\/dev\/drbd/ {gsub(";","",$2); gsub("/dev/drbd","",$2); print $2}' /etc/drbd.d/*.res | sort -un| tail -1)+1))

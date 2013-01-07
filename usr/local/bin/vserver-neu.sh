@@ -14,6 +14,76 @@ IP=$2
 SIZE=$3
 CONTEXT=$4
 
+
+# IF Abfragen nach dem installierten Software, die benoetigt wird
+if !([ -e /usr/bin/which ]) ; then
+        echo "which ist nicht installiert!!!"
+	exit 1
+fi
+
+if !([ -e $(which parted) ]) ; then
+	echo "Please Install parted"
+	exit 1
+fi
+
+if !([ -e $(which crm) ]) ; then
+	echo "Please Install crm"
+	exit 1
+fi
+
+if !([ -e $(which drbdadm) ]) ; then
+	echo "Please Install drbd"
+	exit 1
+fi
+
+if !([ -e $(which awk) ]) ; then
+	echo "Please Install awk"
+	exit 1
+fi
+
+if !([ -e $(which sort) ]) ; then
+	echo "Please Install sort"
+	exit 1
+fi
+
+if !([ -e $(which tail) ]) ; then
+	echo "Please Install tail"
+	exit 1
+fi
+
+if !([ -e $(which printf) ]) ; then
+	echo "Please Install printf"
+	exit 1
+fi
+
+
+if !([ -e $(which ssh) ]) ; then
+	echo "Please Install openssh"
+	exit 1
+fi
+
+if !([ -e $(which lvcreate) ]) ; then
+	echo "Please Install lvm2"
+	exit 1
+fi
+
+if !([ -e $(which rsync) ]) ; then
+	echo "Please Install rsync"
+	exit 1
+fi
+
+if !([ -e $(which mktemp) ]) ; then
+	echo "Please Install mktemp"
+	exit 1
+fi
+
+if !([ -e $(which virsh) ]) ; then
+	echo "Please Install libvirt-bin"
+	exit 1
+fi
+
+BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$1 ~ /^Netmask:$/ {print $2})
+
 if [ ga$5 == ga ]; then
   # Naechstes freies DRBD
   DRBD=$(($(awk '$1 ~ /^device$/ && $2 ~ /^\/dev\/drbd/ {gsub(";","",$2); gsub("/dev/drbd","",$2); print $2}' /etc/drbd.d/*.res | sort -un| tail -1)+1))
@@ -117,9 +187,9 @@ cat <<-EOF | cibadmin -M -p
         <primitive id="res_IPaddr2_ip_$VSNAME" class="ocf" provider="heartbeat" type="IPaddr2">
           <instance_attributes id="res_IPaddr2_ip_$VSNAME-instance_attributes">
             <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-ip" name="ip" value="$IP"/>
-            <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-nic" name="nic" value="br0"/>
-            <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-cidr_netmask" name="cidr_netmask" value="16"/>
-            <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-broadcast" name="broadcast" value="10.0.255.255"/>
+            <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-nic" name="nic" value="$IF_LAN"/>
+            <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-cidr_netmask" name="cidr_netmask" value="$IF_LAN_NM"/>
+            <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-broadcast" name="broadcast" value="$BROADCAST"/>
           </instance_attributes>
           <operations id="res_IPaddr2_ip_$VSNAME-operations">
             <op interval="0" id="op-res_IPaddr2_ip_$VSNAME-start" name="start" timeout="20"/>
