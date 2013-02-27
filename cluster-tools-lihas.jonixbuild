@@ -1,13 +1,13 @@
 #!/bin/sh
 NAME="cluster-tools-lihas"
 # !!! VERSION udn BUILD werden im Makefile im selben Verzeichnis gesetzt.
-VERSION=${VERSION:-1.2.2}
+VERSION=${VERSION:-1.2.4}
 BUILD=${BUILD:-1}
 shortdesc="Cluster Tools LiHAS"
 longdesc="Tools to create vserver/kvm on lvm/drbd-cluster.
 Exchange ssh-keys, edit /etc/ha.d/ha.cf, edit
 /etc/cluster-tools-lihas.conf and create volumegroups ala
-vg_\$hostname to make the tools work. Also, heartbeat-daemon has to up and running."
+vg_\$hostname to make the tools work. Also, heartbeat-daemon has to up and running. Works with corossync as well, needs 'crm'"
 section=admin
 author="Adrian Reyer <are@lihas.de>"
 website="http://www.lihas.de/"

@@ -77,12 +77,12 @@ if !([ -e $(which mktemp) ]) ; then
 	exit 1
 fi
 
-if !([ -e $(which virsh) ]) ; then
-	echo "Please Install libvirt-bin"
+if !([ -e $(which ipcalc) ]) ; then
+	echo "Please Install mktemp"
 	exit 1
 fi
 
-BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$1 ~ /^Netmask:$/ {print $2})
+BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$1 ~ /^Netmask:$/ {print $2}')
 
 if [ ga$5 == ga ]; then
   # Naechstes freies DRBD
