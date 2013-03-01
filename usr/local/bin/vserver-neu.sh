@@ -14,73 +14,16 @@ IP=$2
 SIZE=$3
 CONTEXT=$4
 
-
 # IF Abfragen nach dem installierten Software, die benoetigt wird
-if !([ -e /usr/bin/which ]) ; then
-        echo "which ist nicht installiert!!!"
-	exit 1
-fi
-
-if !([ -e $(which parted) ]) ; then
-	echo "Please Install parted"
-	exit 1
-fi
-
-if !([ -e $(which crm) ]) ; then
-	echo "Please Install crm"
-	exit 1
-fi
-
-if !([ -e $(which drbdadm) ]) ; then
-	echo "Please Install drbd"
-	exit 1
-fi
-
-if !([ -e $(which awk) ]) ; then
-	echo "Please Install awk"
-	exit 1
-fi
-
-if !([ -e $(which sort) ]) ; then
-	echo "Please Install sort"
-	exit 1
-fi
-
-if !([ -e $(which tail) ]) ; then
-	echo "Please Install tail"
-	exit 1
-fi
-
-if !([ -e $(which printf) ]) ; then
-	echo "Please Install printf"
-	exit 1
-fi
-
-
-if !([ -e $(which ssh) ]) ; then
-	echo "Please Install openssh"
-	exit 1
-fi
-
-if !([ -e $(which lvcreate) ]) ; then
-	echo "Please Install lvm2"
-	exit 1
-fi
-
-if !([ -e $(which rsync) ]) ; then
-	echo "Please Install rsync"
-	exit 1
-fi
-
-if !([ -e $(which mktemp) ]) ; then
-	echo "Please Install mktemp"
-	exit 1
-fi
-
-if !([ -e $(which ipcalc) ]) ; then
-	echo "Please Install mktemp"
-	exit 1
-fi
+if [ ! -e /usr/bin/which    ] ; then echo "which ist nicht installiert!!!"; exit 1; fi
+if ! which crm      >/dev/null 2>&1; then echo "Please Install crm"; exit 1; fi
+if ! which drbdadm  >/dev/null 2>&1; then echo "Please Install drbd"; exit 1; fi
+if ! which awk      >/dev/null 2>&1; then echo "Please Install awk"; exit 1; fi
+if ! which ssh      >/dev/null 2>&1; then echo "Please Install openssh"; exit 1; fi
+if ! which lvcreate >/dev/null 2>&1; then echo "Please Install lvm2"; exit 1; fi
+if ! which rsync    >/dev/null 2>&1; then echo "Please Install rsync"; exit 1; fi
+if ! which mktemp   >/dev/null 2>&1; then echo "Please Install mktemp"; exit 1; fi
+if ! which ipcalc   >/dev/null 2>&1; then echo "Please Install ipcalc"; exit 1; fi
 
 BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$1 ~ /^Netmask:$/ {print $2}')
 
@@ -139,88 +82,39 @@ ssh $HOST2 mkdir $VSERVER_BASE/$VSNAME
 
 rsync -rlHpogDtSvx /etc/vservers $HOST2:/etc/
 
-cat <<-EOF | cibadmin -M -p
-  <configuration>
-    <resources>
-      <master id="ms_$VSNAME">
-        <meta_attributes id="ms_$VSNAME-meta_attributes">
-          <nvpair id="ms_$VSNAME-meta_attributes-clone-max" name="clone-max" value="2"/>
-          <nvpair id="ms_$VSNAME-meta_attributes-notify" name="notify" value="true"/>
-        </meta_attributes>
-        <primitive id="res_drbd_drbd$DRBD_$VSNAME" class="ocf" provider="linbit" type="drbd">
-          <instance_attributes id="res_drbd_drbd$DRBD_$VSNAME-instance_attributes">
-            <nvpair id="nvpair-res_drbd_drbd$DRBD_$VSNAME-drbd_resource" name="drbd_resource" value="vs_$VSNAME"/>
-          </instance_attributes>
-          <operations id="res_drbd_drbd$DRBD_$VSNAME-operations">
-            <op interval="0" id="op-res_drbd_drbd$DRBD_$VSNAME-start" name="start" timeout="240"/>
-            <op interval="0" id="op-res_drbd_drbd$DRBD_$VSNAME-promote" name="promote" timeout="90"/>
-            <op interval="0" id="op-res_drbd_drbd$DRBD_$VSNAME-demote" name="demote" timeout="90"/>
-            <op interval="0" id="op-res_drbd_drbd$DRBD_$VSNAME-stop" name="stop" timeout="100"/>
-            <op id="op-res_drbd_drbd$DRBD_$VSNAME-monitor" name="monitor" interval="10" timeout="20" start-delay="1min"/>
-            <op interval="0" id="op-res_drbd_drbd$DRBD_$VSNAME-notify" name="notify" timeout="90"/>
-          </operations>
-          <meta_attributes id="res_drbd_drbd$DRBD_$VSNAME-meta_attributes">
-            <nvpair id="res_drbd_drbd$DRBD_$VSNAME-meta_attributes-is-managed" name="is-managed" value="true"/>
-          </meta_attributes>
-        </primitive>
-      </master>
-      <group id="grp_$VSNAME">
-        <meta_attributes id="grp_$VSNAME-meta_attributes"/>
-        <primitive id="res_fs_$VSNAME" class="ocf" provider="heartbeat" type="Filesystem">
-          <instance_attributes id="res_fs_$VSNAME-instance_attributes">
-            <nvpair id="nvpair-res_fs_$VSNAME-device" name="device" value="/dev/drbd$DRBD"/>
-            <nvpair id="nvpair-res_fs_$VSNAME-directory" name="directory" value="$VSERVER_BASE/$VSNAME"/>
-            <nvpair id="nvpair-res_fs_$VSNAME-fstype" name="fstype" value="ext4"/>
-            <nvpair id="nvpair-res_fs_$VSNAME-options" name="options" value="noatime,stripe=64,barrier=0"/>
-          </instance_attributes>
-          <operations id="res_fs_$VSNAME-operations">
-            <op interval="0" id="op-res_fs_$VSNAME-start" name="start" timeout="600"/>
-            <op interval="0" id="op-res_fs_$VSNAME-stop" name="stop" timeout="60"/>
-            <op id="op-res_fs_$VSNAME-monitor" name="monitor" interval="20" timeout="40" start-delay="0"/>
-            <op interval="0" id="op-res_fs_$VSNAME-notify" name="notify" timeout="60"/>
-          </operations>
-          <meta_attributes id="res_fs_$VSNAME-meta_attributes">
-            <nvpair id="res_fs_$VSNAME-meta_attributes-is-managed" name="is-managed" value="true"/>
-            <nvpair id="res_fs_$VSNAME-meta_attributes-target-role" name="target-role" value="started"/>
-          </meta_attributes>
-        </primitive>
-        <primitive id="res_IPaddr2_ip_$VSNAME" class="ocf" provider="heartbeat" type="IPaddr2">
-          <instance_attributes id="res_IPaddr2_ip_$VSNAME-instance_attributes">
-            <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-ip" name="ip" value="$IP"/>
-            <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-nic" name="nic" value="$IF_LAN"/>
-            <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-cidr_netmask" name="cidr_netmask" value="$IF_LAN_NM"/>
-            <nvpair id="nvpair-res_IPaddr2_ip_$VSNAME-broadcast" name="broadcast" value="$BROADCAST"/>
-          </instance_attributes>
-          <operations id="res_IPaddr2_ip_$VSNAME-operations">
-            <op interval="0" id="op-res_IPaddr2_ip_$VSNAME-start" name="start" timeout="20"/>
-            <op interval="0" id="op-res_IPaddr2_ip_$VSNAME-stop" name="stop" timeout="20"/>
-            <op id="op-res_IPaddr2_ip_$VSNAME-monitor" name="monitor" interval="10" timeout="20" start-delay="0"/>
-          </operations>
-          <meta_attributes id="res_IPaddr2_ip_$VSNAME-meta_attributes">
-            <nvpair id="res_IPaddr2_ip_$VSNAME-meta_attributes-target-role" name="target-role" value="started"/>
-          </meta_attributes>
-        </primitive>
-        <primitive id="res_VServer-lihas_vs_$VSNAME" class="ocf" provider="lihas" type="VServer-lihas">
-          <instance_attributes id="res_VServer-lihas_vs_$VSNAME-instance_attributes">
-            <nvpair id="nvpair-res_VServer-lihas_vs_$VSNAME-vservername" name="vservername" value="$VSNAME"/>
-          </instance_attributes>
-          <operations id="res_VServer-lihas_vs_$VSNAME-operations">
-            <op interval="0" id="op-res_VServer-lihas_vs_$VSNAME-start" name="start" timeout="600"/>
-            <op interval="0" id="op-res_VServer-lihas_vs_$VSNAME-stop" name="stop" timeout="180"/>
-            <op id="op-res_VServer-lihas_vs_$VSNAME-monitor" name="monitor" interval="10" timeout="20" start-delay="5"/>
-          </operations>
-          <meta_attributes id="res_VServer-lihas_vs_$VSNAME-meta_attributes">
-            <nvpair id="res_VServer-lihas_vs_$VSNAME-meta_attributes-is-managed" name="is-managed" value="true"/>
-            <nvpair id="res_VServer-lihas_vs_$VSNAME-meta_attributes-target-role" name="target-role" value="started"/>
-          </meta_attributes>
-        </primitive>
-      </group>
-    </resources>
-    <constraints>
-      <rsc_location id="loc_ms_$VSNAME-$HOST1" rsc="ms_$VSNAME" node="$HOST1" score="2"/>
-      <rsc_location id="loc_ms_$VSNAME-$HOST2" rsc="ms_$VSNAME" node="$HOST2" score="0"/>
-      <rsc_colocation id="col_grp_$VSNAME-ms_$VSNAME" score="INFINITY" with-rsc-role="Master" rsc="grp_$VSNAME" with-rsc="ms_$VSNAME"/>
-      <rsc_order id="ord_ms_$VSNAME-grp_$VSNAME" score="INFINITY" first-action="promote" then-action="start" first="ms_$VSNAME" then="grp_$VSNAME"/>
-    </constraints>
-  </configuration>
+cat <<EOF | crm configure
+primitive res_drbd_drbdi$DRBD_$VSNAME ocf:lihas:drbd-linhas \
+        params drbd_resource="vs_$VSNAME" \
+        operations $id="res_drbd_drbd$VSNAME-operations" \
+        op start interval="0" timeout="240" \
+        op promote interval="0" timeout="90" \
+        op demote interval="0" timeout="90" \
+        op stop interval="0" timeout="100" \
+        op monitor interval="10" timeout="20" start-delay="0" \
+        op notify interval="0" timeout="90"
+ms ms_$VSNAME res_drbd_drbd$DRBD_$VSNAME \
+        meta notify="true" migration-threshold="10"
+primitive res_fs_$VSNAME ocf:heartbeat:Filesystem \
+        params device="/dev/drbd$DRBD" directory="$VSERVER_BASE/$VSNAME" fstype="ext4" options="noatime,stripe=64,barrier=0" \
+        operations $id="res_fs_$VSNAME-operations" \
+        op start interval="0" timeout="600" \
+        op stop interval="0" timeout="60" \
+        op monitor interval="20" timeout="40" start-delay="0" \
+        op notify interval="0" timeout="60"
+primitive res_IPaddr2_ip_$VSNAME ocf:heartbeat:IPaddr2 \
+        params ip="$IP" nic="$IF_LAN" cidr_netmask="$IF_LAN_NM" broadcast="$BROADCAST" \
+        operations $id="res_IPaddr2_ip_$VSNAME-operations" \
+        op start interval="0" timeout="20" \
+        op stop interval="0" timeout="20" \
+        op monitor interval="10" timeout="20" start-delay="0"
+primitive res_VServer-lihas_vs_$VSNAME ocf:lihas:VServer-lihas \
+        params vservername="$VSNAME" \
+        operations $id="res_VServer-lihas_vs_$VSNAME-operations" \
+        op start interval="0" timeout="600" \
+        op stop interval="0" timeout="180" \
+        op monitor interval="10" timeout="20" start-delay="5"
+group grp_$VSNAME res_fs_$VSNAME res_IPaddr2_ip_$VSNAME res_VServer-lihas_vs_$VSNAME
+colocation col_grp_$VSNAME-ms_$VSNAME inf: grp_$VSNAME ms_$VSNAME:Master
+order ord_ms_$VSNAME-grp_$VSNAME inf: ms_$VSNAME:promote grp_$VSNAME:start
+commit
 EOF
