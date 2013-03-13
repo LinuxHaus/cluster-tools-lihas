@@ -83,9 +83,9 @@ ssh $HOST2 mkdir $VSERVER_BASE/$VSNAME
 rsync -rlHpogDtSvx /etc/vservers $HOST2:/etc/
 
 cat <<EOF | crm configure
-primitive res_drbd_drbdi$DRBD_$VSNAME ocf:lihas:drbd-linhas \
+primitive res_drbd_drbd$DRBD_$VSNAME ocf:lihas:drbd-linhas \
         params drbd_resource="vs_$VSNAME" \
-        operations $id="res_drbd_drbd$VSNAME-operations" \
+        operations \$id="res_drbd_drbd$VSNAME-operations" \
         op start interval="0" timeout="240" \
         op promote interval="0" timeout="90" \
         op demote interval="0" timeout="90" \
@@ -96,20 +96,20 @@ ms ms_$VSNAME res_drbd_drbd$DRBD_$VSNAME \
         meta notify="true" migration-threshold="10"
 primitive res_fs_$VSNAME ocf:heartbeat:Filesystem \
         params device="/dev/drbd$DRBD" directory="$VSERVER_BASE/$VSNAME" fstype="ext4" options="noatime,stripe=64,barrier=0" \
-        operations $id="res_fs_$VSNAME-operations" \
+        operations \$id="res_fs_$VSNAME-operations" \
         op start interval="0" timeout="600" \
         op stop interval="0" timeout="60" \
         op monitor interval="20" timeout="40" start-delay="0" \
         op notify interval="0" timeout="60"
 primitive res_IPaddr2_ip_$VSNAME ocf:heartbeat:IPaddr2 \
         params ip="$IP" nic="$IF_LAN" cidr_netmask="$IF_LAN_NM" broadcast="$BROADCAST" \
-        operations $id="res_IPaddr2_ip_$VSNAME-operations" \
+        operations \$id="res_IPaddr2_ip_$VSNAME-operations" \
         op start interval="0" timeout="20" \
         op stop interval="0" timeout="20" \
         op monitor interval="10" timeout="20" start-delay="0"
 primitive res_VServer-lihas_vs_$VSNAME ocf:lihas:VServer-lihas \
         params vservername="$VSNAME" \
-        operations $id="res_VServer-lihas_vs_$VSNAME-operations" \
+        operations \$id="res_VServer-lihas_vs_$VSNAME-operations" \
         op start interval="0" timeout="600" \
         op stop interval="0" timeout="180" \
         op monitor interval="10" timeout="20" start-delay="5"
@@ -118,3 +118,11 @@ colocation col_grp_$VSNAME-ms_$VSNAME inf: grp_$VSNAME ms_$VSNAME:Master
 order ord_ms_$VSNAME-grp_$VSNAME inf: ms_$VSNAME:promote grp_$VSNAME:start
 commit
 EOF
+
+if [ "x$VSHOOKPOST" != "x" ]; then
+  export VSNAME
+  export IP
+  export SIZE
+  export CONTEXT
+  $VSHOOKPOST
+fi

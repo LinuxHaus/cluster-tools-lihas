@@ -227,7 +227,7 @@ primitive res_VirtualDomain_kvm_$KVMNAME ocf:heartbeat:VirtualDomain \
         op monitor interval="10" timeout="30" start-delay="0" \
         op migrate_from interval="0" timeout="60" \
         op migrate_to interval="0" timeout="120" \
-        meta target-role="stopped"
+        meta target-role="stopped" \
         meta allow-migrate="true"
 colocation col_res_VirtualDomain_kvm_$KVMNAME-ms_$KVMNAME inf: res_VirtualDomain_kvm_$KVMNAME ms_$KVMNAME:Master
 order ord_ms_$KVMNAME-res_VirtualDomain_kvm_$KVMNAME inf: ms_$KVMNAME:promote res_VirtualDomain_kvm_$KVMNAME:start
