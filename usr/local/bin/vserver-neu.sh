@@ -83,7 +83,7 @@ ssh $HOST2 mkdir $VSERVER_BASE/$VSNAME
 rsync -rlHpogDtSvx /etc/vservers $HOST2:/etc/
 
 cat <<EOF | crm configure
-primitive res_drbd_drbd$DRBD_$VSNAME ocf:lihas:drbd-linhas \
+primitive res_drbd_drbd$DRBD_$VSNAME ocf:linbit:drbd \
         params drbd_resource="vs_$VSNAME" \
         operations \$id="res_drbd_drbd$VSNAME-operations" \
         op start interval="0" timeout="240" \
