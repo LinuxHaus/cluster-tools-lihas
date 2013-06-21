@@ -95,8 +95,8 @@ DUMMY=10
 
 RESNAME=vs_$VSNAME$(sed 's#/#_#g' <<< $MNTPOINT)
 
-lvcreate -L$SIZE -n $RESNAME vg_$HOST1
-ssh $HOST2 lvcreate -L$SIZE -n $RESNAME vg_$HOST2
+lvcreate -L$SIZE -n $RESNAME $VG1
+ssh $HOST2 lvcreate -L$SIZE -n $RESNAME $VG2
 
 cat <<-EOF > /etc/drbd.d/$RESNAME.res
 resource $RESNAME {  
