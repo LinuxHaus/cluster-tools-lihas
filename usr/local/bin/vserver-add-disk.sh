@@ -129,6 +129,11 @@ drbdadm -- -o primary $RESNAME
 mkfs.ext4 -L $RESNAME /dev/drbd$DRBD
 mount /dev/drbd$DRBD /mnt
 #mv $VSERVER_BASE/$VSNAME$MNTPOINT/. /mnt/
+crm resource stop res_VServer-lihas_vs_$VSNAME
+while crm resource status res_VServer-lihas_vs_$VSNAME | grep -q 'is running'; do
+  sleep 1
+done
+
 rsync  -rlHpogDtSxAX --numeric-ids $VSERVER_BASE/$VSNAME$MNTPOINT/ /mnt/
 if [ $? -eq 0 ]; then
 	rm -rf $VSERVER_BASE/$VSNAME$MNTPOINT/*
@@ -162,8 +167,6 @@ primitive res_fs_$RESNAME ocf:heartbeat:Filesystem \
         meta is-managed="false"
 commit
 EOF
-
-crm resource stop res_VServer-lihas_vs_$VSNAME
 
 cat <<EOF | crm configure
 colocation col_grp_$VSNAME-ms_$RESNAME inf: grp_$VSNAME ms_$RESNAME:Master
