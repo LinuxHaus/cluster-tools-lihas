@@ -1,2 +1,10 @@
+Checks:
+- drbd-Nummer schon vergeben?
+- drbd-Namen schon vergeben?
+- lv-Namen schon vergeben?
+- vserver-Namen schon vergeben?
+- vserver contextid schon vergeben?
+- IP schon vergeben?
+
 Dependencies:
 debootstrap
