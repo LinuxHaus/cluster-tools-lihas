@@ -4,8 +4,8 @@
 
 if [ ga$3 == ga ]; then
   echo "usage: $0 VSNAME MNTPOINT SIZE [DRBDNUM]" >&2
-  echo "usage: $0 test01 /var/lib/mysql 10G 115" >&2
-  echo "usage: $0 test01 /var/lib/mysql 10G 115 3" >&2
+  echo "usage: $0 test01 /var/lib/mysql 10G" >&2
+  echo "usage: $0 test01 /var/lib/mysql 10G 3" >&2
   exit 1
 fi
 
@@ -164,6 +164,13 @@ commit
 EOF
 
 crm resource stop res_VServer-lihas_vs_$VSNAME
+
+cat <<EOF | crm configure
+colocation col_grp_$VSNAME-ms_$RESNAME inf: grp_$VSNAME ms_$RESNAME:Master
+order ord_ms_$RESNAME-grp_$VSNAME inf: ms_$RESNAME:promote grp_$VSNAME:start
+commit
+EOF
+
 EDITOR="sed -i '/^group grp_'$VSNAME' /,/[^\\]/{s/ res_VServer/ res_fs_'$RESNAME' res_VServer/}'" crm configure edit
 crm resource manage res_fs_$RESNAME
 crm resource start res_VServer-lihas_vs_$VSNAME
