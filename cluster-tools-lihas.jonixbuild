@@ -17,6 +17,11 @@ depends="heartbeat2-scripts-lihas"
 conffiles="/etc/cluster-tools-lihas.conf"
 copyright=GPL
 cat << EOF > $changelog
+$NAME (1.2.8-1) 
+
+ * drbd-conf-sync-after added
+
+-- are <lihas@lihas.de> 2013-10-02
 $NAME (1.2.7-1) 
 
  * vserver-add-disk.sh now adds colocation statement
@@ -55,5 +60,5 @@ cp -a $CWD/usr $PKG/ || exit 1
 $FAKEROOT chmod 755 $PKG/usr/local/bin/kvm-neu.sh || exit 1
 $FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-neu.sh || exit 1
 $FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-add-disk.sh || exit 1
-
+$FAKEROOT chmod 755 $PKG/usr/bin/drbd-conf-sync-after || exit 1
 }

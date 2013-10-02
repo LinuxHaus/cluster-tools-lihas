@@ -1,0 +1,36 @@
+#!/bin/bash
+# adds 'sync after' stuff
+# strictly starts at the 2nd drbd and states every drbd to be synced
+# after the preceding drbd
+
+DRBDDIR=/etc/drbd.d
+drbdold=$(
+  sed -n '/^resource/{s/resource[ \t]*//; s/ .*//; p}' $(
+    grep -lw /dev/drbd$(
+      cat /proc/drbd |
+      sed '1,2d; 4,$d; s/:.*//; /^$/d; s/^[ \t]*//;'
+    ) $DRBDDIR/*.res
+  )
+)
+
+cat /proc/drbd |
+sed -n '1,2d; 4,$d; s/:.*//; /^$/d; /^ \{0,1\}[0-9]/p ' |
+while read drbdnum; do
+  drbdfile=$(grep -lw /dev/drbd$drbdnum $DRBDDIR/*.res)
+done
+cat /proc/drbd |
+sed -n '1,3d; s/:.*//; /^$/d; /^ \{0,1\}[0-9]/p ' |
+while read drbdnum; do
+  drbdfile=$(grep -lw /dev/drbd$drbdnum $DRBDDIR/*.res)
+  drbdname=$(sed -n '/^resource/{s/resource[ \t]*//; s/ .*//; p}' $drbdfile)
+  if grep -qw syncer $drbdfile; then
+    sed -i '/^[ \t]*after/d; /syncer/a \
+\t\tafter '$drbdold';' $drbdfile
+  else
+    sed -i '/protocol/a \
+\tsyncer {\
+\t\tafter '$drbdold'\;\
+\t};' $drbdfile
+  fi
+  drbdold=$drbdname
+done
