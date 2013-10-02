@@ -69,7 +69,7 @@ yes yes | drbdadm create-md vs_$VSNAME
 drbdadm up vs_$VSNAME
 ssh $HOST2 "(yes yes | drbdadm create-md vs_$VSNAME && drbdadm up vs_$VSNAME)"
 
-drbdprimaryforce vs_$VSNAME
+drbdprimaryforce $DRBDVERSION vs_$VSNAME
 
 mkfs.ext4 -L vs_$VSNAME /dev/drbd$DRBD
 mount /dev/drbd$DRBD /mnt

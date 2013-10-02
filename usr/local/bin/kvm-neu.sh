@@ -78,7 +78,7 @@ yes yes | drbdadm create-md kvm_$KVMNAME
 drbdadm up kvm_$KVMNAME
 ssh $HOST2 "(yes yes | drbdadm create-md kvm_$KVMNAME && drbdadm up kvm_$KVMNAME)"
 
-drbdprimaryforce kvm_$KVMNAME
+drbdprimaryforce $DRBDVERSION kvm_$KVMNAME
 parted /dev/drbd$DRBD mklabel msdos
 
 cat <<EOF | crm configure

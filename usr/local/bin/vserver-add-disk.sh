@@ -70,7 +70,7 @@ yes yes | drbdadm create-md $RESNAME
 drbdadm up $RESNAME
 ssh $HOST2 "(yes yes | drbdadm create-md $RESNAME && drbdadm up $RESNAME)"
 
-drbdprimaryforce $RESNAME
+drbdprimaryforce $DRBDVERSION $RESNAME
 
 mkfs.ext4 -L $RESNAME /dev/drbd$DRBD
 mount /dev/drbd$DRBD /mnt
