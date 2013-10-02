@@ -26,10 +26,12 @@ if ! which mktemp   >/dev/null 2>&1; then echo "Please Install mktemp"; exit 1; 
 if ! which ipcalc   >/dev/null 2>&1; then echo "Please Install ipcalc"; exit 1; fi
 
 BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$1 ~ /^Netmask:$/ {print $2}')
+. $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
+DRBDVERSION=$(drbdversion)
 
 if [ ga$5 == ga ]; then
   # Naechstes freies DRBD
-  DRBD=$(($(awk '$1 ~ /^device$/ && $2 ~ /^\/dev\/drbd/ {gsub(";","",$2); gsub("/dev/drbd","",$2); print $2}' /etc/drbd.d/*.res | sort -un| tail -1)+1))
+  DRBD=$(drbdnextfree)
 else
   DRBD=$5
 fi
@@ -67,7 +69,7 @@ yes yes | drbdadm create-md vs_$VSNAME
 drbdadm up vs_$VSNAME
 ssh $HOST2 "(yes yes | drbdadm create-md vs_$VSNAME && drbdadm up vs_$VSNAME)"
 
-drbdadm -- -o primary vs_$VSNAME
+drbdprimaryforce vs_$VSNAME
 
 mkfs.ext4 -L vs_$VSNAME /dev/drbd$DRBD
 mount /dev/drbd$DRBD /mnt

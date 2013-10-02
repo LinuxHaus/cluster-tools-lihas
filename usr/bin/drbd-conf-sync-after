@@ -30,7 +30,7 @@ while read drbdnum; do
     sed -i '/protocol/a \
 \tsyncer {\
 \t\tafter '$drbdold'\;\
-\t};' $drbdfile
+\t}' $drbdfile
   fi
   drbdold=$drbdname
 done
