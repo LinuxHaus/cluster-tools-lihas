@@ -8,12 +8,14 @@ drbdold=$(
   sed -n '/^resource/{s/resource[ \t]*//; s/ .*//; p}' $(
     grep -lw /dev/drbd$(
       cat /proc/drbd |
+      sed '/^$/d;' |
       sed '1,2d; 4,$d; s/:.*//; /^$/d; s/^[ \t]*//;'
     ) $DRBDDIR/*.res
   )
 )
 
 cat /proc/drbd |
+sed '/^$/d;' |
 sed -n '1,2d; 4,$d; s/:.*//; /^$/d; /^ \{0,1\}[0-9]/p ' |
 while read drbdnum; do
   drbdfile=$(grep -lw /dev/drbd$drbdnum $DRBDDIR/*.res)

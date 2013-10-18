@@ -96,7 +96,7 @@ ms ms_$KVMNAME p_$KVMNAME \
 commit
 EOF
 
-while ! drbd-overview | sed 's/:/ /g' | awk '$2 ~ /^kvm_'$KVMNAME'$/' | grep -q Primary/Primary; do
+while ! drbd-overview | sed 's/:/ /g' | awk '$2 ~ /^kvm_'$KVMNAME'(\/.*|)$/' | grep -q Primary/Primary; do
   cat /proc/drbd
   sleep 5
 done
