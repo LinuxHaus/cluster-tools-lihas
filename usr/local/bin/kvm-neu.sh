@@ -66,7 +66,7 @@ resource kvm_$KVMNAME {
         }
         on $HOST2 {
                 device          /dev/drbd$DRBD;
-                disk            /dev/vg_$HOST2/kvm_$KVMNAME;
+                disk            /dev/$VG2/kvm_$KVMNAME;
                 flexible-meta-disk      internal;
                 address         $IP_DRBD2:77$DRBDPORT;
         }
