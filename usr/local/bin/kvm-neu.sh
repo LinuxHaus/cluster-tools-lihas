@@ -14,6 +14,8 @@ SIZE=$2
 VIRSHINSTANCES="qemu:///system qemu+ssh://$HOST2/system"
 . $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
 DRBDVERSION=$(drbdversion)
+# different MACs per cluster
+MACBASE=$(hostname | md5sum | awk '{printf("52:54:%02s:%02s:%02s\n", substr($1,1,2), substr($1,3,2), substr($1,5,2)) }')
 
 # IF Abfragen nach dem installierten Software, die benoetigt wird
 if !([ -e /usr/bin/which ]) ; then echo "which ist nicht installiert!!!"; exit 1; fi
@@ -132,7 +134,7 @@ cat <<-EOF >$DOMFILE
   <on_crash>restart</on_crash>
   <devices>
     <emulator>/usr/bin/kvm</emulator>
-    <disk type='block' device='disk'>
+    <disk type='block' device='disk' cache='none'>
       <driver name='qemu' type='raw'/>
       <source dev='/dev/drbd$DRBD'/>
       <target dev='hda' bus='virtio'/>
@@ -140,7 +142,7 @@ cat <<-EOF >$DOMFILE
       <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
     </disk>
     <interface type='bridge'>
-      <mac address='52:54:00:38:81:$DRBDPORT'/>
+      <mac address='$MACBASE:$DRBDPORT'/>
       <source bridge='br0'/>
       <target dev='vnet1'/>
       <model type='virtio'/>
