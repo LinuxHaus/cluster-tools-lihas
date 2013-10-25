@@ -25,7 +25,7 @@ if ! which rsync    >/dev/null 2>&1; then echo "Please Install rsync"; exit 1; f
 if ! which mktemp   >/dev/null 2>&1; then echo "Please Install mktemp"; exit 1; fi
 if ! which ipcalc   >/dev/null 2>&1; then echo "Please Install ipcalc"; exit 1; fi
 
-BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$1 ~ /^Netmask:$/ {print $2}')
+BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$2 ~ /^Broadcast:$/ {print $2}')
 . $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
 DRBDVERSION=$(drbdversion)
 

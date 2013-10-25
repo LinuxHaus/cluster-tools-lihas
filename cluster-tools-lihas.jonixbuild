@@ -1,7 +1,7 @@
 #!/bin/sh
 NAME="cluster-tools-lihas"
 # !!! VERSION und BUILD werden im Makefile im selben Verzeichnis gesetzt.
-VERSION=${VERSION:-1.3.3}
+VERSION=${VERSION:-1.3.4}
 BUILD=${BUILD:-1}
 shortdesc="Cluster Tools LiHAS"
 longdesc="Tools to create vserver/kvm on lvm/drbd-cluster.
@@ -18,16 +18,21 @@ recommends="debootstrap"
 conffiles="/etc/cluster-tools-lihas.conf"
 copyright=GPL
 cat << EOF > $changelog
+$NAME (1.3.4-1) 
+
+ * vserver-neu.sh: use correct broadcast address in crm
+
+-- are <lihas@lihas.de> 2013-10-25
 $NAME (1.3.3-1) 
 
  * kvm-neu.sh: calc MAC base from hostname
 
--- are <lihas@lihas.de> 2013-10-23
+-- are <lihas@lihas.de> 2013-10-25
 $NAME (1.3.1-3) 
 
  * Fix VG in kvm_neu.sh
 
--- are <lihas@lihas.de> 2013-10-23
+-- are <lihas@lihas.de> 2013-10-24
 $NAME (1.3.1-3) 
 
  * Added some dependencies
