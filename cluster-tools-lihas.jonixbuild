@@ -1,8 +1,7 @@
 #!/bin/sh
 NAME="cluster-tools-lihas"
 # !!! VERSION und BUILD werden im Makefile im selben Verzeichnis gesetzt.
-VERSION=${VERSION:-1.3.4}
-BUILD=${BUILD:-1}
+VERSION=$(git describe)
 shortdesc="Cluster Tools LiHAS"
 longdesc="Tools to create vserver/kvm on lvm/drbd-cluster.
 Exchange ssh-keys, edit /etc/ha.d/ha.cf, edit
