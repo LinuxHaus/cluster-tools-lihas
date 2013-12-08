@@ -16,12 +16,16 @@ drbdold=$(
 
 cat /proc/drbd |
 sed '/^$/d;' |
-sed -n '1,2d; 4,$d; s/:.*//; /^$/d; /^ \{0,1\}[0-9]/p ' |
+sed -n '1,2d; 4,$d; /: cs:Unconfigured/d; s/:.*//; /^$/d; /^ \{0,1\}[0-9]/p ' |
 while read drbdnum; do
   drbdfile=$(grep -lw /dev/drbd$drbdnum $DRBDDIR/*.res)
+  if grep -qw syncer $drbdfile; then
+    sed -i '/^[ \t]*after/d;' $drbdfile
+  fi
 done
 cat /proc/drbd |
-sed -n '1,3d; s/:.*//; /^$/d; /^ \{0,1\}[0-9]/p ' |
+sed '/^$/d;' |
+sed -n '1,3d; /: cs:Unconfigured/d; s/:.*//; /^$/d; /^ \{0,1\}[0-9]/p ' |
 while read drbdnum; do
   drbdfile=$(grep -lw /dev/drbd$drbdnum $DRBDDIR/*.res)
   drbdname=$(sed -n '/^resource/{s/resource[ \t]*//; s/ .*//; p}' $drbdfile)
