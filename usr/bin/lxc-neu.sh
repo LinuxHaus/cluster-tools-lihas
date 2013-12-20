@@ -2,7 +2,7 @@
 
 [ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
 
-if [ ga$4 == ga ]; then
+if [ ga$2 == ga ]; then
   echo "usage: $0 VSNAME SIZE [DRBDNUM]" >&2
   echo "usage: $0 test01 10G " >&2
   echo "usage: $0 test01 10G 3" >&2
