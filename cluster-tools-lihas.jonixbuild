@@ -3,10 +3,10 @@ NAME="cluster-tools-lihas"
 # !!! VERSION und BUILD werden im Makefile im selben Verzeichnis gesetzt.
 VERSION=$(git describe)
 shortdesc="Cluster Tools LiHAS"
-longdesc="Tools to create vserver/kvm on lvm/drbd-cluster.
+longdesc="Tools to create vserver/lxc/kvm on lvm/drbd-cluster.
 Exchange ssh-keys, edit /etc/ha.d/ha.cf, edit
-/etc/cluster-tools-lihas.conf and create volumegroups ala
-vg_\$hostname to make the tools work. Also, heartbeat-daemon has to up and running. Works with corossync as well, needs 'crm'"
+/etc/cluster-tools-lihas.conf and create volumegroups as
+vg_\$hostname to make the tools work. Also, heartbeat-daemon has to be up and running. Works with corossync as well, needs 'crm'"
 section=admin
 author="Adrian Reyer <are@lihas.de>"
 website="http://www.lihas.de/"
@@ -17,6 +17,12 @@ recommends="debootstrap"
 conffiles="/etc/cluster-tools-lihas.conf"
 copyright=GPL
 cat << EOF > $changelog
+$NAME (1.4.0-1) 
+
+  * lxc-neu.sh: inital version
+
+-- are <lihas@lihas.de> 2013-12-20
+
 $NAME (1.3.4-1) 
 
  * vserver-neu.sh: use correct broadcast address in crm

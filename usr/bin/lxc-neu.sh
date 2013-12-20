@@ -3,16 +3,14 @@
 [ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
 
 if [ ga$4 == ga ]; then
-  echo "usage: $0 VSNAME IP SIZE CONTEXT [DRBDNUM]" >&2
-  echo "usage: $0 test01 10.0.0.115 10G 115" >&2
-  echo "usage: $0 test01 10.0.0.115 10G 115 3" >&2
+  echo "usage: $0 VSNAME SIZE [DRBDNUM]" >&2
+  echo "usage: $0 test01 10G " >&2
+  echo "usage: $0 test01 10G 3" >&2
   exit 1
 fi
 
 VSNAME=$1
-IP=$2
-SIZE=$3
-CONTEXT=$4
+SIZE=$2
 
 # IF Abfragen nach dem installierten Software, die benoetigt wird
 if [ ! -e /usr/bin/which    ] ; then echo "which ist nicht installiert!!!"; exit 1; fi
@@ -29,11 +27,11 @@ BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$2 ~ /^Broadcast:$/ {print $2}')
 . $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
 DRBDVERSION=$(drbdversion)
 
-if [ ga$5 == ga ]; then
+if [ ga$3 == ga ]; then
   # Naechstes freies DRBD
   DRBD=$(drbdnextfree)
 else
-  DRBD=$5
+  DRBD=$3
 fi
 
 DRBDPORT=$(printf "%02i" $DRBD)
