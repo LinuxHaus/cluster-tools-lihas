@@ -27,6 +27,7 @@ if !([ -e $(which lvcreate) ]) ; then echo "Please Install lvm2"; exit 1; fi
 if !([ -e $(which rsync) ]) ; then echo "Please Install rsync"; exit 1; fi
 if !([ -e $(which mkfs.ext4) ]) ; then echo "Please Install e2fsprogs"; exit 1; fi
 
+. $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
 if [ ga$4 == ga ]; then
   DRBD=$(drbdnextfree)
 else
@@ -34,7 +35,6 @@ else
 fi
 
 DRBDPORT=$(printf "%02i" $DRBD)
-. $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
 DRBDVERSION=$(drbdversion)
 
 DUMMY=10
@@ -80,6 +80,7 @@ while crm resource status res_VServer-lihas_vs_$VSNAME | grep -q 'is running'; d
   sleep 1
 done
 
+mkdir -p $VSERVER_BASE/$VSNAME$MNTPOINT
 rsync  -rlHpogDtSxAX --numeric-ids $VSERVER_BASE/$VSNAME$MNTPOINT/ /mnt/
 if [ $? -eq 0 ]; then
 	rm -rf $VSERVER_BASE/$VSNAME$MNTPOINT/*
