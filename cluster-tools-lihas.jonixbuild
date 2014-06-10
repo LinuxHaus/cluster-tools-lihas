@@ -4,8 +4,8 @@ NAME="cluster-tools-lihas"
 version=$(cd $CWD; git describe | cut -d'-' -f1)
 git_id=$(cd $CWD; git describe | cut -d'-' -f3)
 #VERSION=$(cd $CWD; git describe | cut -d'-' -f1)
-VERSION=$version$git_id
 BUILD=$(cd $CWD; git describe | cut -d'-' -f2)
+VERSION=$version
 shortdesc="Cluster Tools LiHAS"
 longdesc="Tools to create vserver/lxc/kvm on lvm/drbd-cluster.
 Exchange ssh-keys, edit /etc/ha.d/ha.cf, edit
