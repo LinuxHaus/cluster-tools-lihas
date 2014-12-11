@@ -20,7 +20,16 @@ suggests="util-vserver-build, pacemaker, drbd8-utils"
 recommends="debootstrap"
 conffiles="/etc/cluster-tools-lihas.conf"
 copyright=GPL
+cat << EOF > $basedir/EXCEPTION
+mkdir -p $PKG/var/backups/crm
+EOF
 cat << EOF > $changelog
+$NAME (1.4.3-1) 
+
+  * crm-backup: inital version
+
+-- are <lihas@lihas.de> 2014-12-11
+
 $NAME (1.4.0-1) 
 
   * lxc-neu.sh: inital version
@@ -106,4 +115,5 @@ $FAKEROOT chmod 755 $PKG/usr/local/bin/kvm-neu.sh || exit 1
 $FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-neu.sh || exit 1
 $FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-add-disk.sh || exit 1
 $FAKEROOT chmod 755 $PKG/usr/bin/drbd-conf-sync-after || exit 1
+$FAKEROOT chmod 755 $PKG/usr/bin/crm-backup || exit 1
 }

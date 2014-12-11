@@ -1,0 +1,51 @@
+#!/bin/bash
+
+if [ "x$CRMBACKUPDIR" == "x" ]; then
+    CRMBACKUPDIR=/var/backups/crm
+fi
+if [ ! -d "CRMBACKUPDIR" ]; then
+    mkdir -p "$CRMBACKUPDIR"
+fi
+if [ "x$CRM" == "x" ]; then
+    CRM=$(which crm)
+fi 
+if [ ! -x "$CRM" ]; then
+    echo "crm shell '$CRM' not executable, please set \$CRM in config" >&2
+    exit 1
+fi
+
+TMPFILEBASE=$(mktemp -d crm-backup.XXXXXXXXXX)
+if [ ! -d "$TMPFILEBASE" ]; then
+    echo "Failed to access $TMPFILEBASE" >&2
+    rm -rf $TMPFILEBASE
+    exit 1
+fi
+
+TMPFILE="$TMPFILEBASE/crm"
+$CRM configure save "$TMPFILE"
+ERRCODE=$?
+if [ 0 -ne $ERRCODE ]; then
+    echo "$CRM configure save \"$TMPFILE\" failed with code $ERRCODE" >&2
+    rm -rf $TMPFILEBASE
+    exit 1
+fi
+
+
+# find most recent backup, based on filename
+LASTBACKUP=$(find /var/backups/crm -type f -name 'crm-*' | tail -n1)
+NEWBACKUP=crm-$(date +%Y-%m-%dT%H:%M:%S)
+if [ "x$LASTBACKUP" == "x" ]; then
+    # no last backup, copy file
+    cp "$TMPFILE" "/var/backups/crm/$NEWBACKUP"
+else
+    if ! diff "$LASTBACKUP" "$TMPFILE" >/dev/null; then
+	# backup different from last one
+	cp "$TMPFILE" "/var/backups/crm/$NEWBACKUP"
+	ERRCODE=$?
+	if [ 0 -ne $ERRCODE ]; then
+	    echo "copy 'cp \"$TMPFILE\" \"/var/backups/crm/$NEWBACKUP\"' failed with code $ERRCODE" >&2
+	    rm -rf $TMPFILEBASE
+	    exit 1
+	fi
+    fi
+fi
