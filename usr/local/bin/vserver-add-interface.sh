@@ -67,6 +67,7 @@ check_ip ()
 	if [ $? -eq 0 ]; then
 		TMP=`echo $FOUND | awk -F "/" '{print $4}'`
 		echo "$IP is used in VServer $TMP "
+		exit 1
 	fi
 
 	#check network
