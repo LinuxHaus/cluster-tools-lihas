@@ -1,16 +1,56 @@
 #!/bin/bash
 
 [ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
+CRMONLY=0
+KVMNAME=""
+SIZE=""
+DRBD=""
 
-if [ ga$2 == ga ]; then
-  echo "usage: $0 KVMNAME SIZE [DRBDNUM]" >&2
-  echo "  z.B. $0 test01 30G" >&2
-  echo "  z.B. $0 test01 30G 3" >&2
+print_help() {
+	echo "Usage: $0 --kvmname=KVMNAME --size=SIZE --drbd=DRBDNUM [--print-crm-only]" >&2
+	echo "--kvmname: Name of KVM" >&2
+	echo "--size:    virtual disk size, e.g. 10G" >&2
+	echo "--drbd:    drbd device number to use" >&2
+	echo "--print-crm-only:    just print the resulting crm resources" >&2
+}
+error() {
+  print_help
+  echo "$*"
   exit 1
+}
+TEMP=`getopt -o h --long help,kvmname:,size:,drbd:,print-crm-only -- "$@"`
+if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
+eval set -- "$TEMP"
+while true ; do
+	case "$1" in
+		--kvmname) KVMNAME=$2; shift 2;;
+		--size) SIZE=$2; shift 2;;
+		--drbd) DRBD=$2; shift 2;;
+		--print-crm-only) CRMONLY=1; shift 1;;
+		--help|-h) print_help;;
+		--) shift ; break ;;
+		*) echo "Unknown parameter $1i, try -h" ; exit 1 ;;
+	esac
+done
+
+if [ "x$KVMNAME" == "x" ]; then
+	echo "Missing --kvmname" >&2
+	print_help
+	exit 1
+fi
+if [ "x$SIZE" == "x" ]; then
+	echo "Missing --size" >&2
+	print_help
+	exit 1
 fi
 
-KVMNAME=$1
-SIZE=$2
+#if [ ga$2 == ga ]; then
+#  echo "usage: $0 KVMNAME SIZE [DRBDNUM]" >&2
+#  echo "  z.B. $0 test01 30G" >&2
+#  echo "  z.B. $0 test01 30G 3" >&2
+#  exit 1
+#fi
+
 VIRSHINSTANCES="qemu:///system qemu+ssh://$HOST2/system"
 . $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
 DRBDVERSION=$(drbdversion)
@@ -32,20 +72,19 @@ if !([ -e $(which rsync) ]) ; then echo "Please Install rsync"; exit 1; fi
 if !([ -e $(which mktemp) ]) ; then echo "Please Install mktemp"; exit 1; fi
 if !([ -e $(which virsh) ]) ; then echo "Please Install libvirt-bin"; exit 1; fi
 
-if [ ga$3 == ga ]; then
+if [ "ga$DRBD" == "ga" ]; then
   DRBD=$(drbdnextfree)
-else
-  DRBD=$3
 fi
 
 DRBDPORT=$(printf "%02i" $DRBD)
 
 DUMMY=10
 
-lvcreate -L$SIZE -n kvm_$KVMNAME $VG1
-ssh $HOST2 lvcreate -L$SIZE -n kvm_$KVMNAME $VG2
+if [ $CRMONLY -eq 0 ]; then
+	lvcreate -L$SIZE -n kvm_$KVMNAME $VG1
+	ssh $HOST2 lvcreate -L$SIZE -n kvm_$KVMNAME $VG2
 
-cat <<-EOF > /etc/drbd.d/kvm_$KVMNAME.res
+	cat <<-EOF > /etc/drbd.d/kvm_$KVMNAME.res
 resource kvm_$KVMNAME {  
         protocol        C;
         syncer {
@@ -75,15 +114,15 @@ resource kvm_$KVMNAME {
 }
 EOF
 
-rsync -rlHpogDtSvx /etc/drbd.d $HOST2:/etc/
-yes yes | drbdadm create-md kvm_$KVMNAME
-drbdadm up kvm_$KVMNAME
-ssh $HOST2 "(yes yes | drbdadm create-md kvm_$KVMNAME && drbdadm up kvm_$KVMNAME)"
+	rsync -rlHpogDtSvx /etc/drbd.d $HOST2:/etc/
+	yes yes | drbdadm create-md kvm_$KVMNAME
+	drbdadm up kvm_$KVMNAME
+	ssh $HOST2 "(yes yes | drbdadm create-md kvm_$KVMNAME && drbdadm up kvm_$KVMNAME)"
 
-drbdprimaryforce $DRBDVERSION kvm_$KVMNAME
-parted /dev/drbd$DRBD mklabel msdos
-
-cat <<EOF | crm configure
+	drbdprimaryforce $DRBDVERSION kvm_$KVMNAME
+	parted /dev/drbd$DRBD mklabel msdos
+fi
+cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 primitive p_$KVMNAME ocf:linbit:drbd \
         params drbd_resource="kvm_$KVMNAME" \
         op start interval="0" timeout="240" \
@@ -98,20 +137,21 @@ ms ms_$KVMNAME p_$KVMNAME \
 commit
 EOF
 
-while ! drbd-overview | sed 's/:/ /g' | awk '$2 ~ /^kvm_'$KVMNAME'(\/.*|)$/' | grep -q Primary/Primary; do
-  cat /proc/drbd
-  sleep 5
-done
+if [ $CRMONLY -eq 0 ]; then
+	while ! drbd-overview | sed 's/:/ /g' | awk '$2 ~ /^kvm_'$KVMNAME'(\/.*|)$/' | grep -q Primary/Primary; do
+	  cat /proc/drbd
+	  sleep 5
+	done
 
-virsh pool-create-as --name $KVMNAME --type disk --source-path dev --source-dev /dev/drbd$DRBD --target /dev/
-virsh pool-dumpxml $KVMNAME > /etc/libvirt/storage/$KVMNAME.xml
-ln -s /etc/libvirt/storage/$KVMNAME.xml /etc/libvirt/storage/autostart/$KVMNAME.xml
-ssh $HOST2 /etc/init.d/libvirt-bin stop
-rsync -rlHpogDtSvx --numeric-ids /etc/libvirt $HOST2:/etc/
-ssh $HOST2 /etc/init.d/libvirt-bin start
-/etc/init.d/libvirt-bin restart
+	virsh pool-create-as --name $KVMNAME --type disk --source-path dev --source-dev /dev/drbd$DRBD --target /dev/
+	virsh pool-dumpxml $KVMNAME > /etc/libvirt/storage/$KVMNAME.xml
+	ln -s /etc/libvirt/storage/$KVMNAME.xml /etc/libvirt/storage/autostart/$KVMNAME.xml
+	ssh $HOST2 /etc/init.d/libvirt-bin stop
+	rsync -rlHpogDtSvx --numeric-ids /etc/libvirt $HOST2:/etc/
+	ssh $HOST2 /etc/init.d/libvirt-bin start
+	/etc/init.d/libvirt-bin restart
 
-DOMFILE=`mktemp`
+	DOMFILE=`mktemp`
 cat <<-EOF >$DOMFILE
 <domain type='kvm' id='3'>
   <name>$KVMNAME</name>
@@ -164,12 +204,12 @@ cat <<-EOF >$DOMFILE
 </domain>
 EOF
 
-for virshinstance in $VIRSHINSTANCES; do
-  virsh -c $virshinstance define $DOMFILE
-done
-rm $DOMFILE
-
-cat <<EOF | crm configure
+	for virshinstance in $VIRSHINSTANCES; do
+	  virsh -c $virshinstance define $DOMFILE
+	done
+	rm $DOMFILE
+fi
+cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 primitive res_VirtualDomain_kvm_$KVMNAME ocf:heartbeat:VirtualDomain \
         params config="/etc/libvirt/qemu/$KVMNAME.xml" \
         op start interval="0" timeout="90" \
@@ -185,4 +225,4 @@ commit
 EOF
 
 echo "Dinge tun, z.B. Bootmedium auswaehlen"
-
+# vim: ts=2 sw=2 sts=2 sr noet
