@@ -111,9 +111,9 @@ EOF
 build () {
 cp -a $CWD/etc $PKG/ || exit 1
 cp -a $CWD/usr $PKG/ || exit 1
-$FAKEROOT chmod 755 $PKG/usr/local/bin/kvm-neu.sh || exit 1
-$FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-neu.sh || exit 1
-$FAKEROOT chmod 755 $PKG/usr/local/bin/vserver-add-disk.sh || exit 1
+$FAKEROOT chmod 755 $PKG/usr/bin/kvm-neu || exit 1
+$FAKEROOT chmod 755 $PKG/usr/bin/vserver-neu || exit 1
+$FAKEROOT chmod 755 $PKG/usr/bin/vserver-add-disk || exit 1
 $FAKEROOT chmod 755 $PKG/usr/bin/drbd-conf-sync-after || exit 1
 $FAKEROOT chmod 755 $PKG/usr/bin/crm-backup || exit 1
 }
