@@ -1,0 +1,14 @@
+.TH drbd-conf-sync-after 8  "December 15, 2014" "version 1.4.4"
+.SH NAME
+drbd-conf-sync-after \- make drbd volumes resync after each other.
+.SH SYNOPSIS
+.B drbd-conf-sync-after
+.SH DESCRIPTION
+Adjusts /etc/drbd.d/*.res to sync after each other and reduce load.
+.PP
+.SH EXIT STATUS
+drbd-conf-sync-after return 0 on success or if it was unable to detect the errors.
+.SH AUTHOR
+Adrian Reyer (lihas (at) lihas.de)
+.SH SEE ALSO
+drbdadm(8)

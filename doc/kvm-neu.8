@@ -1,0 +1,41 @@
+.TH kvm-neu 8  "December 15, 2014" "version 1.4.4"
+.SH NAME
+kvm-neu \- build a new KVM and integrate it into the cluster setup
+.SH SYNOPSIS
+.B kvm-neu
+[\-h] [\-\-help] \-\-name NAME \-\-size nnG \-\-drbd DRBD [\-\-print\-crm\-only]
+.SH DESCRIPTION
+Build a new KVM on top of a newly build DRBD on newly allocated LVs. The KVM will be stopped after creation.
+.PP
+.SH OPTIONS
+.TP
+\-h
+\-\-help
+display a short help text
+.TP
+\-\-name
+NAME of the kvm
+.TP
+\-\-size
+size including unit of the virtual harddisk the KVM will reside on.
+.TP
+\-\-drbd
+number of the drbd device, e.g. 1 for /dev/drbd1, must be free, optional.
+Despite it is optional, it is strongly advised to explicitly set this parameter.
+.TP
+\-\-print-crm-only
+Don't create LVs, DRBDs and libvirt-configuration, just print the resulting crm configuration commands. Good to get an existing KVM (back) into the crm.
+.SH EXAMPLES
+.TP
+Build a KVM test on a 10GB drbd volume with number 0:
+.B kvm-neu --name test --size 10G --drbd 0
+.TP
+Build the crm-configuration for a KVM test on a 10GB drbd volume with number 0:
+.B kvm-neu --name test --size 10G --drbd 0 --print-crm-only
+.PP
+.SH EXIT STATUS
+kvm-neu return 0 on success or if it was unable to detect the errors.
+.SH AUTHOR
+Adrian Reyer (lihas (at) lihas.de)
+.SH SEE ALSO
+vserver-neu(1)

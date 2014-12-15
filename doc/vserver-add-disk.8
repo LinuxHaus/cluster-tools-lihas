@@ -1,0 +1,21 @@
+.TH vserver-add-disk 8  "December 15, 2014" "version 1.4.4"
+.SH NAME
+vserver-add-disk \- build a new LXC and integrate it into the cluster setup
+.SH SYNOPSIS
+.B vserver-add-disk
+VSNAME MNTPOINT SIZE [DRBDNUM]
+.SH DESCRIPTION
+add a new filesystem to an existing HA linux-vserver created with vserver-neu
+.TP
+.B BARELY TESTED  BARELY TESTED  BARELY TESTED  BARELY TESTED  BARELY TESTED
+.PP
+.SH OPTIONS
+.TP
+VSNAME MNTPOINT SIZE [DRBDNUM]
+.PP
+.SH EXIT STATUS
+vserver-add-disk return 0 on success or if it was unable to detect the errors.
+.SH AUTHOR
+Adrian Reyer (lihas (at) lihas.de)
+.SH SEE ALSO
+vserver-neu(1)

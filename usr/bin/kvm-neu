@@ -7,8 +7,8 @@ SIZE=""
 DRBD=""
 
 print_help() {
-	echo "Usage: $0 --kvmname=KVMNAME --size=SIZE --drbd=DRBDNUM [--print-crm-only]" >&2
-	echo "--kvmname: Name of KVM" >&2
+	echo "Usage: $0 --name=KVMNAME --size=SIZE --drbd=DRBDNUM [--print-crm-only]" >&2
+	echo "--name: Name of KVM" >&2
 	echo "--size:    virtual disk size, e.g. 10G" >&2
 	echo "--drbd:    drbd device number to use" >&2
 	echo "--print-crm-only:    just print the resulting crm resources" >&2
@@ -18,12 +18,12 @@ error() {
   echo "$*"
   exit 1
 }
-TEMP=`getopt -o h --long help,kvmname:,size:,drbd:,print-crm-only -- "$@"`
+TEMP=`getopt -o h --long help,name:,size:,drbd:,print-crm-only -- "$@"`
 if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
 while true ; do
 	case "$1" in
-		--kvmname) KVMNAME=$2; shift 2;;
+		--name) KVMNAME=$2; shift 2;;
 		--size) SIZE=$2; shift 2;;
 		--drbd) DRBD=$2; shift 2;;
 		--print-crm-only) CRMONLY=1; shift 1;;

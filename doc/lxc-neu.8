@@ -1,0 +1,21 @@
+.TH lxc-neu 8  "December 15, 2014" "version 1.4.4"
+.SH NAME
+lxc-neu \- build a new LXC and integrate it into the cluster setup
+.SH SYNOPSIS
+.B lxc-neu
+VSNAME SIZE [DRBDNUM]
+.SH DESCRIPTION
+Build a new LXC on top of a newly build DRBD on newly allocated LVs. The LXC will be stopped after creation.
+.TP
+.B BARELY TESTED  BARELY TESTED  BARELY TESTED  BARELY TESTED  BARELY TESTED
+.PP
+.SH OPTIONS
+.TP
+VSNAME SIZE [DRBDNUM]
+.PP
+.SH EXIT STATUS
+lxc-neu return 0 on success or if it was unable to detect the errors.
+.SH AUTHOR
+Adrian Reyer (lihas (at) lihas.de)
+.SH SEE ALSO
+vserver-neu(1)

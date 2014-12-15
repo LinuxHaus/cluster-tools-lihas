@@ -1,0 +1,21 @@
+.TH vserver-add-interface 8  "December 15, 2014" "version 1.4.4"
+.SH NAME
+vserver-add-interface \- build a new LXC and integrate it into the cluster setup
+.SH SYNOPSIS
+.B vserver-add-interface
+VSNAME INTERFACE IP NETMASK
+.SH DESCRIPTION
+add a new ip to an existing HA linux-vsevrer created with vserver-neu
+.TP
+.B BARELY TESTED  BARELY TESTED  BARELY TESTED  BARELY TESTED  BARELY TESTED
+.PP
+.SH OPTIONS
+.TP
+VSNAME INTERFACE IP NETMASK
+.PP
+.SH EXIT STATUS
+vserver-add-interface return 0 on success or if it was unable to detect the errors.
+.SH AUTHOR
+Adrian Reyer (lihas (at) lihas.de)
+.SH SEE ALSO
+vserver-neu(1)
