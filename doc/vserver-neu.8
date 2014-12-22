@@ -34,7 +34,7 @@ Don't create LVs, DRBDs, FS and VServer, just print the resulting crm configurat
 .SH EXAMPLES
 .TP
 Build a VServer test on a 10GB drbd volume with number 0, ip 10.0.10.1 and context id 101:
-.B vserver-neu --name test --ip 10.0.10.1 --context 101 --size 10G --drbd 0
+.B vserver-neu --name test --ip 10.0.10.1 --context 101 --size 10G --drbd 0 --arch i386
 .TP
 Build the crm-configuration for a VServer test on a 10GB drbd volume with number 0, ip 10.0.10.1 and context id 101:
 .B vserver-neu --name test --ip 10.0.10.1 --context 101 --size 10G --drbd 0 --print-crm-only

@@ -8,6 +8,7 @@ SIZE=""
 CONTEXT=""
 DRBD=""
 CRMONLY=0
+ARCHITECTURE=""
 
 print_help() {
   echo "Usage: $0 --name=VSNAME --ip=IP --size=SIZE --context=CTX --drbd=DRBDNUM [--print-crm-only]" >&2
@@ -24,7 +25,7 @@ error() {
   echo "$*"
   exit 1
 }
-TEMP=`getopt -o h --long help,name:,ip:,size:,context:,drbd:,print-crm-only -- "$@"`
+TEMP=`getopt -o h --long help,name:,ip:,size:,context:,drbd:,print-crm-only:,arch -- "$@"`
 if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
 while true ; do
@@ -34,7 +35,7 @@ while true ; do
     --size)    SIZE=$2; shift 2;;
     --context) CONTEXT=$2; shift 2;;
     --drbd)    DRBD=$2; shift 2;;
-    --arch)    ARCHITECTURE=$2; shift 2;;
+    --arch)    ARCH=$2; shift 2;;
     --print-crm-only) CRMONLY=1; shift 1;;
     --help|-h) print_help;;
     --) shift ; break ;;
@@ -68,6 +69,11 @@ if [ "x$CONTEXT" == "x" ]; then
   print_help
   exit 1
 fi
+if [ "x$ARCH" != "x" ]; then
+	ARCHITECTURE="--arch $ARCH"
+  exit 1
+fi
+
 
 # IF Abfragen nach dem installierten Software, die benoetigt wird
 if [ ! -e /usr/bin/which    ] ; then echo "which ist nicht installiert!!!"; exit 1; fi
@@ -131,7 +137,7 @@ EOF
 
 	mkfs.ext4 -L vs_$VSNAME /dev/drbd$DRBD
 	mount /dev/drbd$DRBD /mnt
-	vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m debootstrap -- -d $DEBIANDIST  -- --arch $ARCHITECTURE --include=vim,etckeeper,less,nullmailer,bash-completion,bash-builtins,zsh,strace,lsof,debconf-utils,heirloom-mailx,bind9-host,busybox,tcpdump --exclude=dmidecode,isc-dhcp-client,isc-dhcp-common,kmod,nano,ifupdown,iptables --components=main,contrib,non-free
+	vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m debootstrap -- -d $DEBIANDIST  -- $ARCHITECTURE --include=vim,etckeeper,less,nullmailer,bash-completion,bash-builtins,zsh,strace,lsof,debconf-utils,heirloom-mailx,bind9-host,busybox,tcpdump --exclude=dmidecode,isc-dhcp-client,isc-dhcp-common,kmod,nano,ifupdown,iptables --components=main,contrib,non-free
 	cat $VSERVER_TEMPLATE/etc/apt/sources.list > $VSERVER_BASE/$VSNAME/etc/apt/sources.list
 	sed -i '/tmpfs/d' /etc/vservers/$VSNAME/fstab
 	sed -i -e '/#HWCLOCKACCESS=yes$/aHWCLOCKACCESS=no' /vservers/"$VSNAME"/etc/default/hwclock
