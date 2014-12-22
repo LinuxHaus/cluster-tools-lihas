@@ -3,7 +3,7 @@
 vserver-neu \- build a new Linux-VServer and integrate it into the cluster setup
 .SH SYNOPSIS
 .B vserver-neu
-[\-h] [\-\-help] \-\-name NAME \-\-size nnG \-\-drbd DRBD [\-\-print\-crm\-only]
+[\-h] [\-\-help] \-\-name NAME \-\-size nnG \-\-drbd DRBD [\-\-print\-crm\-only] [\-\-arch]
 .SH DESCRIPTION
 Build a new Linux-VServer on top of a new filesystem upon a newly build DRBD on newly allocated LVs. The VServer will be started after creation.
 .PP
@@ -31,9 +31,14 @@ Despite it is optional, it is strongly advised to explicitly set this parameter.
 .TP
 \-\-print-crm-only
 Don't create LVs, DRBDs, FS and VServer, just print the resulting crm configuration commands. Good to get an existing KVM (back) into the crm.
+\-\-arch
+architecture for new vserver
 .SH EXAMPLES
 .TP
 Build a VServer test on a 10GB drbd volume with number 0, ip 10.0.10.1 and context id 101:
+.B vserver-neu --name test --ip 10.0.10.1 --context 101 --size 10G --drbd 0
+.TP
+Build a VServer test on a 10GB drbd volume with number 0, ip 10.0.10.1 and context id 101 and 32 bit architecture:
 .B vserver-neu --name test --ip 10.0.10.1 --context 101 --size 10G --drbd 0 --arch i386
 .TP
 Build the crm-configuration for a VServer test on a 10GB drbd volume with number 0, ip 10.0.10.1 and context id 101:
