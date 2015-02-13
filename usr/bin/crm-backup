@@ -49,4 +49,4 @@ else
 	fi
     fi
 fi
-rm -rf "$TMPFILE"
+rm -rf "$TMPFILEBASE"
