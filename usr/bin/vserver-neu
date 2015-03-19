@@ -25,7 +25,7 @@ error() {
   echo "$*"
   exit 1
 }
-TEMP=`getopt -o h --long help,name:,ip:,size:,context:,drbd:,print-crm-only:,arch -- "$@"`
+TEMP=`getopt -o h --long help,name:,ip:,size:,context:,drbd:,print-crm-only,arch -- "$@"`
 if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
 while true ; do
@@ -149,7 +149,7 @@ EOF
 	echo . /etc/bash_completion >> /vservers/"$VSNAME"/root/.bashrc
 	echo export HISTTIMEFORMAT=\"%Y-%m-%d -- %H:%M:%S \" >> /vservers/"$VSNAME"/root/.bashrc
 	echo export HISTSIZE=50000 >> /vservers/"$VSNAME"/root/.bashrc
-	rm /vservers/"$VSNAME"/etc/rc6.d/*(???hwclock.sh|???umountnfs.sh|???umountfs|???umountroot)
+	rm /vservers/"$VSNAME"/etc/rc6.d/*{???hwclock.sh,???umountnfs.sh,???umountfs,???umountroot}
 
 	touch /etc/vservers/$VSNAME/interfaces/0/nodev
 	mv $VSERVER_BASE/$VSNAME/* /mnt/
