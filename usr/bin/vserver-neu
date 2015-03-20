@@ -90,7 +90,7 @@ if ! which ipcalc   >/dev/null 2>&1; then echo "Please Install ipcalc"; exit 1; 
 if ! which debootstrap   >/dev/null 2>&1; then echo "Please Install debootstrap"; exit 1; fi
 if ! which vserver   >/dev/null 2>&1; then echo "Please Install util-vserver and vserver-kernel"; exit 1; fi
 
-BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$2 ~ /^Broadcast:$/ {print $2}')
+BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$1 ~ /^Broadcast:$/ {print $2}')
 . $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
 DRBDVERSION=$(drbdversion)
 
