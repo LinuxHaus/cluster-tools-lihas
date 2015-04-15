@@ -58,20 +58,20 @@ DRBDVERSION=$(drbdversion)
 MACBASE=$(hostname | md5sum | awk '{printf("52:54:%02s:%02s:%02s\n", substr($1,1,2), substr($1,3,2), substr($1,5,2)) }')
 
 # IF Abfragen nach dem installierten Software, die benoetigt wird
-if !([ -x /usr/bin/which ]) ; then echo "which ist nicht installiert!!!"; exit 1; fi
-if !([ -x $(which parted) ]) ; then echo "Please Install parted"; exit 1; fi
-if !([ -x $(which crm) ]) ; then echo "Please Install crm"; exit 1; fi
-if !([ -x $(which drbdadm) ]) ; then echo "Please Install drbd"; exit 1; fi
-if !([ -x $(which awk) ]) ; then echo "Please Install awk"; exit 1; fi
-if !([ -x $(which sort) ]) ; then echo "Please Install sort"; exit 1; fi
-if !([ -x $(which tail) ]) ; then echo "Please Install tail"; exit 1; fi
-if !([ -x $(which printf) ]) ; then echo "Please Install printf"; exit 1; fi
-if !([ -x $(which ssh) ]) ; then echo "Please Install openssh"; exit 1; fi
-if !([ -x $(which lvcreate) ]) ; then echo "Please Install lvm2"; exit 1; fi
-if !([ -x $(which rsync) ]) ; then echo "Please Install rsync"; exit 1; fi
-if !([ -x $(which mktemp) ]) ; then echo "Please Install mktemp"; exit 1; fi
-if !([ -x $(which virsh) ]) ; then echo "Please Install libvirt-bin"; exit 1; fi
-if !([ -x $(which xmlstarlet) ]) ; then echo "Please Install xmlstarlet"; exit 1; fi
+if [ ! -x /usr/bin/which ]; then echo "which ist nicht installiert!!!"; exit 1; fi
+if ! which parted >/dev/null; then echo "Please Install parted"; exit 1; fi
+if ! which crm >/dev/null ; then echo "Please Install crm"; exit 1; fi
+if ! which drbdadm >/dev/null ; then echo "Please Install drbd"; exit 1; fi
+if ! which awk >/dev/null ; then echo "Please Install awk"; exit 1; fi
+if ! which sort >/dev/null ; then echo "Please Install sort"; exit 1; fi
+if ! which tail >/dev/null ; then echo "Please Install tail"; exit 1; fi
+if ! which printf >/dev/null ; then echo "Please Install printf"; exit 1; fi
+if ! which ssh >/dev/null ; then echo "Please Install openssh"; exit 1; fi
+if ! which lvcreate >/dev/null ; then echo "Please Install lvm2"; exit 1; fi
+if ! which rsync >/dev/null ; then echo "Please Install rsync"; exit 1; fi
+if ! which mktemp >/dev/null ; then echo "Please Install mktemp"; exit 1; fi
+if ! which virsh >/dev/null ; then echo "Please Install libvirt-bin"; exit 1; fi
+if ! which xmlstarlet >/dev/null ; then echo "Please Install xmlstarlet"; exit 1; fi
 
 if [ "ga$DRBD" == "ga" ]; then
   DRBD=$(drbdnextfree)
@@ -84,6 +84,14 @@ VIRTUALDOMAINKILL=0
 if OCF_ROOT=/usr/lib/ocf /usr/lib/ocf/resource.d/heartbeat/VirtualDomain meta-data 2>/dev/null | xmlstarlet sel -t -v //parameter/@name 2>/dev/null | grep -q autoset_utilization_cpu; then
 	VIRTUALDOMAINKILL=1
 	mkdir -p /var/lib/libvirt/conf
+fi
+if [ -x /etc/init.d/libvirt-bin ]; then
+	LIBVIRTSERVICE=/etc/init.d/libvirt-bin
+elif [ -x /etc/init.d/libvirtd ]; then
+	LIBVIRTSERVICE=/etc/init.d/libvirtd
+else
+	echo "Neither /etc/init.d/libvirt-bin, nor /etc/init.d/libvirtd is executable" >&2
+	exit 1
 fi
 
 DUMMY=10
@@ -138,8 +146,7 @@ primitive p_$KVMNAME ocf:linbit:drbd \
         op demote interval="0" timeout="90" \
         op stop interval="0" timeout="100" \
         op monitor interval="10" timeout="20" start-delay="0" \
-        op notify interval="0" timeout="90" \
-        meta target-role="started"
+        op notify interval="0" timeout="90"
 ms ms_$KVMNAME p_$KVMNAME \
         meta master-max="2" clone-max="2" notify="true" interleave="true"
 commit
@@ -155,10 +162,10 @@ if [ $CRMONLY -eq 0 ]; then
 	# VirtualDomain in resource-scripts
 	virsh pool-dumpxml $KVMNAME > /etc/libvirt/storage/$KVMNAME.xml
 	ln -s /etc/libvirt/storage/$KVMNAME.xml /etc/libvirt/storage/autostart/$KVMNAME.xml
-	ssh $HOST2 /etc/init.d/libvirt-bin stop
+	ssh $HOST2 $LIBVIRTSERVICE stop
 	rsync -rlHpogDtSvx --numeric-ids /etc/libvirt $HOST2:/etc/
-	ssh $HOST2 /etc/init.d/libvirt-bin start
-	/etc/init.d/libvirt-bin restart
+	ssh $HOST2 $LIBVIRTSERVICE start
+	$LIBVIRTSERVICE restart
 
 	DOMFILE=`mktemp`
 cat <<-EOF >$DOMFILE
@@ -215,10 +222,11 @@ cat <<-EOF >$DOMFILE
 EOF
 
 	for virshinstance in $VIRSHINSTANCES; do
+		echo virsh@$virshinstance:
 	  virsh -c $virshinstance define $DOMFILE
 	done
 	if [ x1 == "x$VIRTUALDOMAINKILL" ]; then
-		cp $DOMFILE /var/lib/libvirt/qemu/conf/$KVMNAME
+		cp $DOMFILE /var/lib/libvirt/qemu/conf/$KVMNAME.xml
 	fi
 	rm $DOMFILE
 fi

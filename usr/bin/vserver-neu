@@ -76,7 +76,7 @@ fi
 
 
 # IF Abfragen nach dem installierten Software, die benoetigt wird
-if [ ! -e /usr/bin/which    ] ; then echo "which ist nicht installiert!!!"; exit 1; fi
+if [ ! -x /usr/bin/which    ] ; then echo "which ist nicht installiert!!!"; exit 1; fi
 if [ $CRMONLY -eq 0 ]; then
 	if ! which crm      >/dev/null 2>&1; then echo "Please Install crm"; exit 1; fi
 	if ! which drbdadm  >/dev/null 2>&1; then echo "Please Install drbd"; exit 1; fi
