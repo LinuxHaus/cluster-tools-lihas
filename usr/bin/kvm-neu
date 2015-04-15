@@ -58,25 +58,33 @@ DRBDVERSION=$(drbdversion)
 MACBASE=$(hostname | md5sum | awk '{printf("52:54:%02s:%02s:%02s\n", substr($1,1,2), substr($1,3,2), substr($1,5,2)) }')
 
 # IF Abfragen nach dem installierten Software, die benoetigt wird
-if !([ -e /usr/bin/which ]) ; then echo "which ist nicht installiert!!!"; exit 1; fi
-if !([ -e $(which parted) ]) ; then echo "Please Install parted"; exit 1; fi
-if !([ -e $(which crm) ]) ; then echo "Please Install crm"; exit 1; fi
-if !([ -e $(which drbdadm) ]) ; then echo "Please Install drbd"; exit 1; fi
-if !([ -e $(which awk) ]) ; then echo "Please Install awk"; exit 1; fi
-if !([ -e $(which sort) ]) ; then echo "Please Install sort"; exit 1; fi
-if !([ -e $(which tail) ]) ; then echo "Please Install tail"; exit 1; fi
-if !([ -e $(which printf) ]) ; then echo "Please Install printf"; exit 1; fi
-if !([ -e $(which ssh) ]) ; then echo "Please Install openssh"; exit 1; fi
-if !([ -e $(which lvcreate) ]) ; then echo "Please Install lvm2"; exit 1; fi
-if !([ -e $(which rsync) ]) ; then echo "Please Install rsync"; exit 1; fi
-if !([ -e $(which mktemp) ]) ; then echo "Please Install mktemp"; exit 1; fi
-if !([ -e $(which virsh) ]) ; then echo "Please Install libvirt-bin"; exit 1; fi
+if !([ -x /usr/bin/which ]) ; then echo "which ist nicht installiert!!!"; exit 1; fi
+if !([ -x $(which parted) ]) ; then echo "Please Install parted"; exit 1; fi
+if !([ -x $(which crm) ]) ; then echo "Please Install crm"; exit 1; fi
+if !([ -x $(which drbdadm) ]) ; then echo "Please Install drbd"; exit 1; fi
+if !([ -x $(which awk) ]) ; then echo "Please Install awk"; exit 1; fi
+if !([ -x $(which sort) ]) ; then echo "Please Install sort"; exit 1; fi
+if !([ -x $(which tail) ]) ; then echo "Please Install tail"; exit 1; fi
+if !([ -x $(which printf) ]) ; then echo "Please Install printf"; exit 1; fi
+if !([ -x $(which ssh) ]) ; then echo "Please Install openssh"; exit 1; fi
+if !([ -x $(which lvcreate) ]) ; then echo "Please Install lvm2"; exit 1; fi
+if !([ -x $(which rsync) ]) ; then echo "Please Install rsync"; exit 1; fi
+if !([ -x $(which mktemp) ]) ; then echo "Please Install mktemp"; exit 1; fi
+if !([ -x $(which virsh) ]) ; then echo "Please Install libvirt-bin"; exit 1; fi
+if !([ -x $(which xmlstarlet) ]) ; then echo "Please Install xmlstarlet"; exit 1; fi
 
 if [ "ga$DRBD" == "ga" ]; then
   DRBD=$(drbdnextfree)
 fi
 
 DRBDPORT=$(printf "%02i" $DRBD)
+
+# VirtualDomain from resource-agents 3.9.3+git20121009-3.1 deletes the config from libvirtd
+VIRTUALDOMAINKILL=0
+if OCF_ROOT=/usr/lib/ocf /usr/lib/ocf/resource.d/heartbeat/VirtualDomain meta-data 2>/dev/null | xmlstarlet sel -t -v //parameter/@name 2>/dev/null | grep -q autoset_utilization_cpu; then
+	VIRTUALDOMAINKILL=1
+	mkdir -p /var/lib/libvirt/conf
+fi
 
 DUMMY=10
 
@@ -138,12 +146,13 @@ commit
 EOF
 
 if [ $CRMONLY -eq 0 ]; then
-	while ! drbd-overview | sed 's/:/ /g' | awk '$2 ~ /^kvm_'$KVMNAME'(\/.*|)$/' | grep -q Primary/Primary; do
-	  cat /proc/drbd
-	  sleep 5
-	done
+#	while ! drbd-overview | sed 's/:/ /g' | awk '$2 ~ /^kvm_'$KVMNAME'(\/.*|$)$/' | grep -q Primary/Primary; do
+#	  cat /proc/drbd
+#	  sleep 5
+#	done
 
 	virsh pool-create-as --name $KVMNAME --type disk --source-path dev --source-dev /dev/drbd$DRBD --target /dev/
+	# VirtualDomain in resource-scripts
 	virsh pool-dumpxml $KVMNAME > /etc/libvirt/storage/$KVMNAME.xml
 	ln -s /etc/libvirt/storage/$KVMNAME.xml /etc/libvirt/storage/autostart/$KVMNAME.xml
 	ssh $HOST2 /etc/init.d/libvirt-bin stop
@@ -208,6 +217,9 @@ EOF
 	for virshinstance in $VIRSHINSTANCES; do
 	  virsh -c $virshinstance define $DOMFILE
 	done
+	if [ x1 == "x$VIRTUALDOMAINKILL" ]; then
+		cp $DOMFILE /var/lib/libvirt/qemu/conf/$KVMNAME
+	fi
 	rm $DOMFILE
 fi
 cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi

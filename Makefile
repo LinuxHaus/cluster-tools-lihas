@@ -18,7 +18,7 @@ vg_\$hostname to make the tools work.\n\
 Also, heartbeat-daemon has to be up and running.\n\
 Works with corossync as well, needs 'crm'
 DEBIAN_DEPENDS=heartbeat2-scripts-lihas, ipcalc
-DEBIAN_RECOMMENDS=debootstrap
+DEBIAN_RECOMMENDS=debootstrap, xmlstarlet
 DEBIAN_SUGGESTS=util-vserver-build, pacemaker | crmsh | openais, drbd8-utils, libvirt-bin
 
 CFGDDIR=$(DESTDIR)/etc/cluster-tools-lihas.d
