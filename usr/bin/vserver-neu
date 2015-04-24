@@ -25,7 +25,7 @@ error() {
   echo "$*"
   exit 1
 }
-TEMP=`getopt -o h --long help,name:,ip:,size:,context:,drbd:,print-crm-only,arch -- "$@"`
+TEMP=`getopt -o h --long help,name:,ip:,size:,context:,drbd:,print-crm-only,arch: -- "$@"`
 if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
 while true ; do
@@ -71,7 +71,6 @@ if [ "x$CONTEXT" == "x" ]; then
 fi
 if [ "x$ARCH" != "x" ]; then
 	ARCHITECTURE="--arch $ARCH"
-  exit 1
 fi
 
 
