@@ -1,0 +1,126 @@
+#!/bin/bash
+
+[ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
+CRMONLY=0
+VSERVERNAME=""
+SIZE=""
+DRBD=""
+
+print_help() {
+	echo "Usage: $0 --name=VSERVERNAME" >&2
+	echo "--name: Name of VSERVERNAME" >&2
+	echo "DELETES a VSERVERNAME AND ALL DATA" >&2
+	echo "THE DATA IS GONE AFTERWARDS" >&2
+	echo "Things that are gone include: HA-configuration for vserver, ip, firlesystem, ha-group and drbd, drbd-configuration, logical volumes" >&2
+}
+error() {
+  print_help
+  echo "$*"
+  exit 1
+}
+TEMP=`getopt -o h --long help,name: -- "$@"`
+if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
+eval set -- "$TEMP"
+while true ; do
+	case "$1" in
+		--name) VSERVERNAME=$2; shift 2;;
+		--help|-h) print_help;;
+		--) shift ; break ;;
+		*) echo "Unknown parameter $1i, try -h" ; exit 1 ;;
+	esac
+done
+
+if [ "x$VSERVERNAME" == "x" ]; then
+	echo "Missing --name" >&2
+	print_help
+	exit 1
+fi
+
+#if [ ga$2 == ga ]; then
+#  echo "usage: $0 VSERVERNAME SIZE [DRBDNUM]" >&2
+#  echo "  z.B. $0 test01 30G" >&2
+#  echo "  z.B. $0 test01 30G 3" >&2
+#  exit 1
+#fi
+
+DRBDVERSION=$(drbdversion)
+# different MACs per cluster
+
+# IF Abfragen nach dem installierten Software, die benoetigt wird
+if [ ! -x /usr/bin/which ] ; then echo "which ist nicht installiert!!!"; exit 1; fi
+if ! which crm >/dev/null ; then echo "Please Install crm"; exit 1; fi
+if ! which drbdadm >/dev/null ; then echo "Please Install drbd"; exit 1; fi
+if ! which awk >/dev/null ; then echo "Please Install awk"; exit 1; fi
+if ! which sort >/dev/null ; then echo "Please Install sort"; exit 1; fi
+if ! which tail >/dev/null ; then echo "Please Install tail"; exit 1; fi
+if ! which printf >/dev/null ; then echo "Please Install printf"; exit 1; fi
+if ! which ssh >/dev/null ; then echo "Please Install openssh"; exit 1; fi
+if ! which lvremove >/dev/null ; then echo "Please Install lvm2"; exit 1; fi
+if ! which rsync >/dev/null ; then echo "Please Install rsync"; exit 1; fi
+if ! which mktemp >/dev/null ; then echo "Please Install mktemp"; exit 1; fi
+if ! which virsh >/dev/null ; then echo "Please Install libvirt-bin"; exit 1; fi
+if ! which xmlstarlet >/dev/null ; then echo "Please Install xmlstarlet"; exit 1; fi
+
+DUMMY=10
+echo "Check plausibility:"
+resources=$(crm configure show grp_$VSERVERNAME 2>&1 | sed '/^group/{s/^group grp_'$VSERVERNAME' //; s/ \\$//; p}; d')
+for res in $resources; do
+	case $res in
+		res_fs_$VSERVERNAME|res_IPaddr2_ip_$VSERVERNAME|res_VServer-lihas_vs_$VSERVERNAME)
+			echo $res ok
+			;;
+		*)
+			echo $res unexpected, exit
+			exit 1
+			;;
+	esac
+done
+
+if ! ssh $HOST2 true; then
+	echo "HOST2=$HOST2 variable not set (correctly) in /etc/cluster-tools-lihas.conf"
+	exit 1
+fi
+if ! lvdisplay $VG1 > /dev/null; then
+	echo "Volumegroup '$VG1' not available here"
+	exit 1
+fi
+if ! ssh $HOST2 lvdisplay $VG2 > /dev/null; then
+	echo "Volumegroup '$VG2' not available on $HOST2"
+	exit 1
+fi
+
+echo "Stop HA Services grp_$VSERVERNAME and ms_$VSERVERNAME"
+read -p "[Enter] to continue, Ctrl-C to abort]"
+crm --wait resource stop grp_$VSERVERNAME
+crm --wait resource demote ms_$VSERVERNAME
+crm --wait resource stop ms_$VSERVERNAME
+crm --wait resource stop res_drbd_drbd$VSERVERNAME
+
+echo "Delete HA Services grp_$VSERVERNAME and ms_$VSERVERNAME"
+crm --wait configure delete res_VServer-lihas_vs_$VSERVERNAME
+crm --wait configure delete res_IPaddr2_ip_$VSERVERNAME
+crm --wait configure delete res_fs_$VSERVERNAME
+crm --wait configure delete ms_$VSERVERNAME
+crm --wait resource stop res_drbd_drbd$VSERVERNAME
+crm --wait resource cleanup res_drbd_drbd$VSERVERNAME
+crm --wait configure delete res_drbd_drbd$VSERVERNAME
+
+echo "Shutting down DRBD vs_$VSERVERNAME"
+drbdadm down vs_$VSERVERNAME
+ssh $HOST2 drbdadm down vs_$VSERVERNAME
+echo "Removing DRBD configuration"
+rm /etc/drbd.d/vs_$VSERVERNAME.res
+drbd-conf-sync-after
+ssh $HOST2 rm /etc/drbd.d/vs_$VSERVERNAME.res
+ssh $HOST2 drbd-conf-sync-after
+echo "Deleting LVs"
+lvremove --force /dev/$VG1/vs_$VSERVERNAME
+ssh $HOST2 lvremove --force /dev/$VG2/vs_$VSERVERNAME
+echo "Deleting VServer configuration"
+curdir=$(pwd)
+cd /etc/vservers/$VSERVERNAME/vdir && cd -P . &&  deldir=$(pwd) && cd .. && rm -rf "$deldir" &&
+cd $curdir &&
+rm -rf /etc/vservers/$VSERVERNAME &&
+ssh $HOST2 "(rm -rf '$deldir'; rm -rf /etc/vservers/$VSERVERNAME)"
+
+# vim: ts=2 sw=2 sts=2 sr noet
