@@ -97,7 +97,7 @@ add_ip ()
 	rsync -rlHpogDtSvx /etc/vservers/$VSNAME $HOST2:/etc/vservers/
 		
 
-	naddress --nid $VSNAME --add  --ip $IP --bcast $NETMASK
+	naddress --nid $VSNAME --add  --ip ${IP}/${NETMASK}
 	if [ $? -ne 0 ]; then
 		echo "Can't add $IP to $VSNAME"
 		exit 1
@@ -115,7 +115,7 @@ crm resource unmanage grp_$VSNAME
 
 cat <<EOF | crm configure
 primitive res_IPaddr2_ip_$RESNAME ocf:heartbeat:IPaddr2 \
-        params ip="$IP" nic="$INTERFACE" cidr_netmask="$NETMASK" broadcast="" \
+        params ip="$IP" nic="$INTERFACE" cidr_netmask="$NETMASK" \
         operations \$id="res_IPaddr2_ip_$RESNAME-operations" \
         op start interval="0" timeout="20" \
         op stop interval="0" timeout="20" \
