@@ -11,7 +11,7 @@ print_help() {
 	echo "--name: Name of VSERVERNAME" >&2
 	echo "DELETES a VSERVERNAME AND ALL DATA" >&2
 	echo "THE DATA IS GONE AFTERWARDS" >&2
-	echo "Things that are gone include: HA-configuration for vserver, ip, firlesystem, ha-group and drbd, drbd-configuration, logical volumes" >&2
+	echo "Things that are gone include: HA-configuration for vserver, ip, filesystem, ha-group and drbd, drbd-configuration, logical volumes" >&2
 }
 error() {
   print_help

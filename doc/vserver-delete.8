@@ -1,0 +1,31 @@
+.TH vserver-delete 8  "December 15, 2014" "version 1.4.4"
+.SH NAME
+vserver-delete \- delete a VServer, remove config from cluster, libvirt, drbd and lvm
+.SH SYNOPSIS
+.B vserver-delete
+[\-h] [\-\-help] \-\-name NAME
+.SH DESCRIPTION
+Delete a VServer, remove config from cluster, libvirt, drbd and lvm.
+Things that are gone include: HA-configuration for vserver, ip, filesystem, ha-group and drbd, drbd-configuration, logical volumes.
+No data should be left behind, no security questions asked, data is just deleted.
+.PP
+.SH OPTIONS
+.TP
+\-h
+\-\-help
+display a short help text
+.TP
+\-\-name
+NAME of the vserver
+.SH EXAMPLES
+.TP
+Delete a VServer:
+.B vserver-delete --name test
+.TP
+.PP
+.SH EXIT STATUS
+vserver-delete return 0 on success or if it was unable to detect the errors.
+.SH AUTHOR
+Adrian Reyer (lihas (at) lihas.de)
+.SH SEE ALSO
+vserver-neu(1)
