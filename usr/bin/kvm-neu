@@ -11,6 +11,7 @@ print_help() {
 	echo "--name: Name of KVM" >&2
 	echo "--size:    virtual disk size, e.g. 10G" >&2
 	echo "--drbd:    drbd device number to use" >&2
+	echo "--kvmdir:  store kvm-configuration in KVMDIR instead of /etc/libvirt/qemu/, needed for VirtualDomain-ocf >=jessie" >&2
 	echo "--print-crm-only:    just print the resulting crm resources" >&2
 }
 error() {
@@ -18,7 +19,7 @@ error() {
   echo "$*"
   exit 1
 }
-TEMP=`getopt -o h --long help,name:,size:,drbd:,print-crm-only -- "$@"`
+TEMP=`getopt -o h --long help,name:,size:,drbd:,kvmdir:,print-crm-only -- "$@"`
 if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
 while true ; do
@@ -27,6 +28,7 @@ while true ; do
 		--size) SIZE=$2; shift 2;;
 		--drbd) DRBD=$2; shift 2;;
 		--print-crm-only) CRMONLY=1; shift 1;;
+    --kvmdir) KVMDIR=$2; shift 2;;
 		--help|-h) print_help;;
 		--) shift ; break ;;
 		*) echo "Unknown parameter $1i, try -h" ; exit 1 ;;
@@ -221,6 +223,13 @@ cat <<-EOF >$DOMFILE
 </domain>
 EOF
 
+  if [ x"$KVMDIR" != x ]; then
+		mkdir -p $KVMDIR
+		ssh $HOST2 mkdir -p $KVMDIR
+		cp $DOMFILE $KVMDIR/$KVMNAME.xml
+		rsync -rlHpogDtSvx $KVMDIR/. $HOST2:$KVMDIR/
+  fi
+
 	for virshinstance in $VIRSHINSTANCES; do
 		echo virsh@$virshinstance:
 	  virsh -c $virshinstance define $DOMFILE
@@ -230,6 +239,22 @@ EOF
 	fi
 	rm $DOMFILE
 fi
+if [ x"$KVMDIR" != x ]; then
+cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
+primitive res_VirtualDomain_kvm_$KVMNAME ocf:heartbeat:VirtualDomain \
+        params config="$KVMDIR/$KVMNAME.xml" \
+        op start interval="0" timeout="90" \
+        op stop interval="0" timeout="90" \
+        op monitor interval="10" timeout="30" start-delay="0" \
+        op migrate_from interval="0" timeout="60" \
+        op migrate_to interval="0" timeout="120" \
+        meta target-role="stopped" \
+        meta allow-migrate="true"
+colocation col_res_VirtualDomain_kvm_$KVMNAME-ms_$KVMNAME inf: res_VirtualDomain_kvm_$KVMNAME ms_$KVMNAME:Master
+order ord_ms_$KVMNAME-res_VirtualDomain_kvm_$KVMNAME inf: ms_$KVMNAME:promote res_VirtualDomain_kvm_$KVMNAME:start
+commit
+EOF
+else
 cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 primitive res_VirtualDomain_kvm_$KVMNAME ocf:heartbeat:VirtualDomain \
         params config="/etc/libvirt/qemu/$KVMNAME.xml" \
@@ -244,6 +269,7 @@ colocation col_res_VirtualDomain_kvm_$KVMNAME-ms_$KVMNAME inf: res_VirtualDomain
 order ord_ms_$KVMNAME-res_VirtualDomain_kvm_$KVMNAME inf: ms_$KVMNAME:promote res_VirtualDomain_kvm_$KVMNAME:start
 commit
 EOF
+fi
 
 echo "Dinge tun, z.B. Bootmedium auswaehlen"
 # vim: ts=2 sw=2 sts=2 sr noet
