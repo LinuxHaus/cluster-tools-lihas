@@ -15,6 +15,7 @@ error() {
   exit 1
 }
 CRMONLY=0
+FORCE_DATALOSS=0
 TEMP=`getopt -o h --long help,name:,size:,drbd:,force-dataloss,print-crm-only -- "$@"`
 if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
@@ -67,17 +68,19 @@ DRBDPORT=$(printf "%02i" $DRBD)
 DUMMY=10
 
 if [ $CRMONLY -eq 0 ]; then
-  if [ -e /etc/drbd.d/lxc_$VSNAME.res ]; then
-    echo "WARNING: /etc/drbd.d/lxc_$VSNAME.res already exists, use --force-data-loss to continue anyway" >&2
-    exit 1
-  fi
-  if [ $(lvs | awk '$2 == "'$VG1'" && $1 == "'lxc_$VSNAME'" {print}' | wc -l ) -ne 0 ]; then
-    echo "WARNING: /dev/$VG1/lxc_$VSNAME already exists, use --force-data-loss to continue anyway" >&2
-    exit 1
-  fi
-  if [ $(ssh $HOST2 lvs | awk '$2 == "'$VG2'" && $1 == "'lxc_$VSNAME'" {print}' | wc -l ) -ne 0 ]; then
-    echo "WARNING: $HOST2:/dev/$VG2/lxc_$VSNAME already exists, use --force-data-loss to continue anyway" >&2
-    exit 1
+  if [ $FORCE_DATALOSS -ne 1 ]; then
+    if [ -e /etc/drbd.d/lxc_$VSNAME.res ]; then
+      echo "WARNING: /etc/drbd.d/lxc_$VSNAME.res already exists, use --force-data-loss to continue anyway" >&2
+      exit 1
+    fi
+    if [ $(lvs | awk '$2 == "'$VG1'" && $1 == "'lxc_$VSNAME'" {print}' | wc -l ) -ne 0 ]; then
+      echo "WARNING: /dev/$VG1/lxc_$VSNAME already exists, use --force-data-loss to continue anyway" >&2
+      exit 1
+    fi
+    if [ $(ssh $HOST2 lvs | awk '$2 == "'$VG2'" && $1 == "'lxc_$VSNAME'" {print}' | wc -l ) -ne 0 ]; then
+      echo "WARNING: $HOST2:/dev/$VG2/lxc_$VSNAME already exists, use --force-data-loss to continue anyway" >&2
+      exit 1
+    fi
   fi
   lvcreate -L$SIZE -n lxc_$VSNAME $VG1
   ssh $HOST2 lvcreate -L$SIZE -n lxc_$VSNAME $VG2
