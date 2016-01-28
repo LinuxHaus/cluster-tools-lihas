@@ -65,7 +65,7 @@ DRBDPORT=$(printf "%02i" $DRBD)
 
 DUMMY=10
 
-if [ $(lvs | awk '$2 == "'$VG1'" && $1 == "'lxc_$VSNAME[A'" {print}' | wc -l ) -ne 0 ]; then
+if [ $(lvs | awk '$2 == "'$VG1'" && $1 == "'lxc_$VSNAME'" {print}' | wc -l ) -ne 0 ]; then
   exit 1
 fi
 lvcreate -L$SIZE -n lxc_$VSNAME $VG1
