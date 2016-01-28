@@ -2,15 +2,44 @@
 
 [ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
 
-if [ ga$2 == ga ]; then
-  echo "usage: $0 VSNAME SIZE [DRBDNUM]" >&2
-  echo "usage: $0 test01 10G " >&2
-  echo "usage: $0 test01 10G 3" >&2
+print_help() {
+  echo "Usage: $0 --name=VSNAME --ip=IP --size=SIZE --context=CTX --drbd=DRBDNUM [--print-crm-only]" >&2
+  echo "--name:    Name of LXC Container" >&2
+  echo "--drbd:    drbd device number to use" >&2
+  echo "--print-crm-only:    just print the resulting crm resources" >&2
+}
+error() {
+  print_help
+  echo "$*"
+  exit 1
+}
+CRMONLY=0
+TEMP=`getopt -o h --long help,name:,size:,drbd:,force-dataloss,print-crm-only -- "$@"`
+if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
+eval set -- "$TEMP"
+while true ; do
+  case "$1" in
+    --name)    VSNAME=$2; shift 2;;
+    --size)    SIZE=$2; shift 2;;
+    --drbd)    DRBD=$2; shift 2;;
+    --print-crm-only) CRMONLY=1; shift 1;;
+    --force-dataloss) FORCE_DATALOSS=1; shift 1;;
+    --help|-h) print_help;;
+    --) shift ; break ;;
+    *) echo "Unknown parameter $1, try -h" ; exit 1 ;;
+  esac
+done
+
+if [ "x$VSNAME" == "x" ]; then
+  echo "Missing --name" >&2
+  print_help
   exit 1
 fi
-
-VSNAME=$1
-SIZE=$2
+if [ "x$SIZE" == "x" ]; then
+  echo "Missing --size" >&2
+  print_help
+  exit 1
+fi
 
 # IF Abfragen nach dem installierten Software, die benoetigt wird
 if [ ! -e /usr/bin/which    ] ; then echo "which ist nicht installiert!!!"; exit 1; fi
@@ -27,17 +56,18 @@ BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$2 ~ /^Broadcast:$/ {print $2}')
 . $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
 DRBDVERSION=$(drbdversion)
 
-if [ ga$3 == ga ]; then
+if [ ga$DRBD == ga ]; then
   # Naechstes freies DRBD
   DRBD=$(drbdnextfree)
-else
-  DRBD=$3
 fi
 
 DRBDPORT=$(printf "%02i" $DRBD)
 
 DUMMY=10
 
+if [ $(lvs | awk '$2 == "'$VG1'" && $1 == "'lxc_$VSNAME[A'" {print}' | wc -l ) -ne 0 ]; then
+  exit 1
+fi
 lvcreate -L$SIZE -n lxc_$VSNAME $VG1
 ssh $HOST2 lvcreate -L$SIZE -n lxc_$VSNAME $VG2
 
@@ -72,9 +102,10 @@ drbdprimaryforce $DRBDVERSION lxc_$VSNAME
 mkfs.ext4 -L lxc_$VSNAME /dev/drbd$DRBD
 mount /dev/drbd$DRBD /mnt
 
-wget http://freedomboxblog.nl/wp-content/uploads/lxc-debian-wheezy.gz -O- | gzip -d > /usr/share/lxc/templates/lxc-debian-wheezy; chown root:root /usr/share/lxc/templates/lxc-debian-wheezy; chmod +x /usr/share/lxc/templates/lxc-debian-wheezy
+# wget http://freedomboxblog.nl/wp-content/uploads/lxc-debian-wheezy.gz -O- | gzip -d > /usr/share/lxc/templates/lxc-debian-wheezy; chown root:root /usr/share/lxc/templates/lxc-debian-wheezy; chmod +x /usr/share/lxc/templates/lxc-debian-wheezy
 
-lxc-create -n $VSNAME -t debian-wheezy
+# lxc-create -n $VSNAME -t debian-wheezy
+lxc-create -n $VSNAME -t debian
 mv $LXC_BASE/$VSNAME/* /mnt/
 umount /mnt 
 ssh $HOST2 mkdir $LXC_BASE/$VSNAME
