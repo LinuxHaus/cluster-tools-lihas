@@ -123,6 +123,10 @@ EOF
   umount /mnt 
   ssh $HOST2 mkdir $LXC_BASE/$VSNAME
 fi
+LXCHA=ocf:lihas:lxc
+if [ -e /usr/lib/ocf/heartbeat/lxc ]; then
+  LXCHA=ocf:heartbeat:lxc
+fi
 cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 primitive res_drbd_drbd$DRBD_$VSNAME ocf:linbit:drbd \
         params drbd_resource="lxc_$VSNAME" \
