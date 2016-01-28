@@ -146,7 +146,7 @@ primitive res_fs_$VSNAME ocf:heartbeat:Filesystem \
         op stop interval="0" timeout="60" \
         op monitor interval="20" timeout="40" start-delay="0" \
         op notify interval="0" timeout="60"
-primitive res_lxc_$VSNAME ocf:lihas:lxc \
+primitive res_lxc_$VSNAME $LXCHA \
         params container="$VSNAME" config="/var/lib/lxc/$VSNAME/config" log="/var/log/lxc/$VSNAME" use_screen="true" \
         operations \$id="res_lxc_$VSNAME-operations" \
         op start interval="0" timeout="600" \
