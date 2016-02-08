@@ -3,7 +3,7 @@
 kvm-neu \- build a new KVM and integrate it into the cluster setup
 .SH SYNOPSIS
 .B kvm-neu
-[\-h] [\-\-help] \-\-name NAME \-\-size nnG \-\-drbd DRBD [\-\-print\-crm\-only]
+[\-h] [\-\-help] \-\-name NAME \-\-size nnG \-\-drbd DRBD [\-\-openvswitch] [\-\-print\-crm\-only]
 .SH DESCRIPTION
 Build a new KVM on top of a newly build DRBD on newly allocated LVs. The KVM will be stopped after creation.
 .PP
@@ -22,6 +22,9 @@ size including unit of the virtual harddisk the KVM will reside on.
 \-\-drbd
 number of the drbd device, e.g. 1 for /dev/drbd1, must be free, optional.
 Despite it is optional, it is strongly advised to explicitly set this parameter.
+.TP
+\-\-openvswitch
+Use OpenVSwitch instead of traditional bridge Interfaces, alternatively set OPENVSWITCH=1 in /etc/cluster-tools-lihas.conf
 .TP
 \-\-print-crm-only
 Don't create LVs, DRBDs and libvirt-configuration, just print the resulting crm configuration commands. Good to get an existing KVM (back) into the crm.

@@ -5,15 +5,18 @@ CRMONLY=0
 KVMNAME=""
 SIZE=""
 DRBD=""
+OPENVSWITCH=${OPENVSWITCH:-0}
 
 print_help() {
-	echo "Usage: $0 --name=KVMNAME --size=SIZE --drbd=DRBDNUM [--print-crm-only]" >&2
+	echo "Usage: $0 --name=KVMNAME --size=SIZE --drbd=DRBDNUM --openvswitch [--print-crm-only]" >&2
 	echo "--name: Name of KVM" >&2
 	echo "--size:    virtual disk size, e.g. 10G" >&2
 	echo "--drbd:    drbd device number to use" >&2
+	echo "--openvswitch: use OpenVSwitch instead of bridge-utils" >&2
 	echo "--kvmdir:  store kvm-configuration in KVMDIR instead of /etc/libvirt/qemu/, needed for VirtualDomain-ocf >=jessie" >&2
 	echo "--print-crm-only:    just print the resulting crm resources" >&2
 }
+
 error() {
   print_help
   echo "$*"
@@ -27,6 +30,7 @@ while true ; do
 		--name) KVMNAME=$2; shift 2;;
 		--size) SIZE=$2; shift 2;;
 		--drbd) DRBD=$2; shift 2;;
+		--openvswitch) OPENVSWITCH=1; shift 1;;
 		--print-crm-only) CRMONLY=1; shift 1;;
     --kvmdir) KVMDIR=$2; shift 2;;
 		--help|-h) print_help; exit 1;;
@@ -169,6 +173,11 @@ if [ $CRMONLY -eq 0 ]; then
 	ssh $HOST2 $LIBVIRTSERVICE start
 	$LIBVIRTSERVICE restart
 
+  if [ $OPENVSWITCH -eq 1 ]; then
+		OVS="<virtualport type='openvswitch'>
+         </virtualport>
+        "
+  fi
 	DOMFILE=`mktemp`
 cat <<-EOF >$DOMFILE
 <domain type='kvm' id='3'>
@@ -201,12 +210,16 @@ cat <<-EOF >$DOMFILE
       <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
     </disk>
     <interface type='bridge'>
-      <mac address='$MACBASE:$DRBDPORT'/>
+
       <source bridge='br0'/>
-      <target dev='vnet1'/>
+      <target dev='$KVMNAME'/>
       <model type='virtio'/>
-      <alias name='net0'/>
+      <mac address='$MACBASE:$DRBDPORT'/>
+      <boot order='1'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+      <source bridge='br0'/>
+      <alias name='net0'/>
+$OVS
     </interface>
     <serial type='pty'>
       <target port='0'/>
