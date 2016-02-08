@@ -180,6 +180,7 @@ cat <<-EOF >$DOMFILE
   <os>
     <type arch='x86_64' machine='pc-0.12'>hvm</type>
     <boot dev='hd'/>
+    <bios useserial='yes'/>
   </os>
   <features>
     <acpi/>
@@ -207,6 +208,12 @@ cat <<-EOF >$DOMFILE
       <alias name='net0'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
     </interface>
+    <serial type='pty'>
+      <target port='0'/>
+    </serial>
+    <console type='pty'>
+      <target type='serial' port='0'/>
+    </console>
     <input type='mouse' bus='ps2'/>
     <input type='tablet' bus='usb'/>
     <graphics type='vnc' port='59$DRBDPORT' autoport='no' listen='127.0.0.1' keymap='de' sharePolicy='ignore'/>
