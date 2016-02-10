@@ -71,7 +71,7 @@ debian-preprepkg:
 	if test -d debian ; then echo "ERROR: debian directory already exists"; exit 1; fi
 
 debian-prepkg: debian-preprepkg
-	echo | DEBFULLNAME="$(DEBIAN_FULL_NAME)" dh_make -s --native -e "$(DEBIAN_EMAIL)" -p $(APPNAME)_$(VERSION)
+	echo | DEBFULLNAME="$(DEBIAN_FULL_NAME)" dh_make -sy --native -e "$(DEBIAN_EMAIL)" -p $(APPNAME)_$(VERSION)
 	sed -i 's#^Homepage:.*#Homepage: $(DEBIAN_HOMEPAGE)#; s#^Architecture:.*#Architecture: $(ARCH)#; /^#/d; s#^Description:.*#Description: $(DESC_SHORT)#; s#^ <insert long description, indented with spaces># $(DESC_LONG)#; s#^Depends: .*#Depends: $${misc:Depends},$(DEBIAN_DEPENDS)#; s#^Section: .*#Section: $(DEBIAN_SECTION)#; s#^Standards-Version: .*#Standards-Version: 3.9.6#; /^Depends:/aRecommends: $(DEBIAN_RECOMMENDS)\nSuggests: $(DEBIAN_SUGGESTS)' debian/control
 	sed -i 's/^Copyright:.*/Copyright: $(COPYRIGHT)/; /likewise for another author/d; s#^Source:.*#Source: $(DEBIAN_SOURCE)#; /^#/d' debian/copyright
 	rm debian/*.ex debian/README.Debian debian/README.source debian/*.doc-base.EX
