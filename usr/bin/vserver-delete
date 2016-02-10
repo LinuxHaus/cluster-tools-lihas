@@ -100,10 +100,10 @@ echo "Delete HA Services grp_$VSERVERNAME and ms_$VSERVERNAME"
 crm --wait configure delete res_VServer-lihas_vs_$VSERVERNAME
 crm --wait configure delete res_IPaddr2_ip_$VSERVERNAME
 crm --wait configure delete res_fs_$VSERVERNAME
-crm --wait configure delete ms_$VSERVERNAME
-crm --wait resource stop res_drbd_drbd$VSERVERNAME
-crm --wait resource cleanup res_drbd_drbd$VSERVERNAME
-crm --wait configure delete res_drbd_drbd$VSERVERNAME
+echo "
+delete ms_$VSERVERNAME
+delete res_drbd_drbd$VSERVERNAME
+commit" | crm --wait configure
 
 echo "Shutting down DRBD vs_$VSERVERNAME"
 drbdadm down vs_$VSERVERNAME
