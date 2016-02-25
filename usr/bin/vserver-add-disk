@@ -34,7 +34,7 @@ else
   DRBD=$4
 fi
 
-DRBDPORT=$(printf "%02i" $DRBD)
+DRBDPORT=$(printf "%03i" $DRBD)
 DRBDVERSION=$(drbdversion)
 
 DUMMY=10
@@ -54,13 +54,13 @@ resource $RESNAME {
                 device          /dev/drbd$DRBD;
                 disk            /dev/$VG1/$RESNAME;
                 flexible-meta-disk      internal;
-                address         $IP_DRBD1:77$DRBDPORT;
+                address         $IP_DRBD1:7$DRBDPORT;
         }
         on $HOST2 {
                 device          /dev/drbd$DRBD;
                 disk            /dev/$VG2/$RESNAME;
                 flexible-meta-disk      internal;
-                address         $IP_DRBD2:77$DRBDPORT;
+                address         $IP_DRBD2:7$DRBDPORT;
         }
 }
 EOF
