@@ -113,6 +113,8 @@ rm /etc/drbd.d/vs_$VSERVERNAME.res
 drbd-conf-sync-after
 ssh $HOST2 rm /etc/drbd.d/vs_$VSERVERNAME.res
 ssh $HOST2 drbd-conf-sync-after
+#resource monitor ueberreste loeschen
+crm --wait resource cleanup res_drbd_drbd$VSERVERNAME
 echo "Deleting LVs"
 lvremove --force /dev/$VG1/vs_$VSERVERNAME
 ssh $HOST2 lvremove --force /dev/$VG2/vs_$VSERVERNAME
