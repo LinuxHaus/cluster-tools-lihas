@@ -58,7 +58,7 @@ if ! which ssh >/dev/null ; then echo "Please Install openssh"; exit 1; fi
 if ! which lvremove >/dev/null ; then echo "Please Install lvm2"; exit 1; fi
 if ! which rsync >/dev/null ; then echo "Please Install rsync"; exit 1; fi
 if ! which mktemp >/dev/null ; then echo "Please Install mktemp"; exit 1; fi
-if ! which virsh >/dev/null ; then echo "Please Install libvirt-bin"; exit 1; fi
+#if ! which virsh >/dev/null ; then echo "Please Install libvirt-bin"; exit 1; fi
 if ! which xmlstarlet >/dev/null ; then echo "Please Install xmlstarlet"; exit 1; fi
 
 DUMMY=10
