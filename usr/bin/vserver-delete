@@ -43,7 +43,7 @@ fi
 #  exit 1
 #fi
 
-DRBDVERSION=$(drbdversion)
+#DRBDVERSION=$(drbdversion)
 # different MACs per cluster
 
 # IF Abfragen nach dem installierten Software, die benoetigt wird
