@@ -89,7 +89,7 @@ DRBDPORT=$(printf "%02i" $DRBD)
 VIRTUALDOMAINKILL=0
 if OCF_ROOT=/usr/lib/ocf /usr/lib/ocf/resource.d/heartbeat/VirtualDomain meta-data 2>/dev/null | xmlstarlet sel -t -v //parameter/@name 2>/dev/null | grep -q autoset_utilization_cpu; then
 	VIRTUALDOMAINKILL=1
-	mkdir -p /var/lib/libvirt/conf
+	mkdir -p /var/lib/libvirt/qemu/conf
 fi
 if [ -x /etc/init.d/libvirt-bin ]; then
 	LIBVIRTSERVICE=/etc/init.d/libvirt-bin
@@ -215,7 +215,6 @@ cat <<-EOF >$DOMFILE
       <target dev='$KVMNAME'/>
       <model type='virtio'/>
       <mac address='$MACBASE:$DRBDPORT'/>
-      <boot order='1'/>
       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
       <source bridge='br0'/>
       <alias name='net0'/>
