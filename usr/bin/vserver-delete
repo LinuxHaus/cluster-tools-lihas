@@ -43,9 +43,6 @@ fi
 #  exit 1
 #fi
 
-DRBDVERSION=$(drbdversion)
-# different MACs per cluster
-
 # IF Abfragen nach dem installierten Software, die benoetigt wird
 if [ ! -x /usr/bin/which ] ; then echo "which ist nicht installiert!!!"; exit 1; fi
 if ! which crm >/dev/null ; then echo "Please Install crm"; exit 1; fi
