@@ -55,10 +55,10 @@ if ! which ssh >/dev/null ; then echo "Please Install openssh"; exit 1; fi
 if ! which lvremove >/dev/null ; then echo "Please Install lvm2"; exit 1; fi
 if ! which rsync >/dev/null ; then echo "Please Install rsync"; exit 1; fi
 if ! which mktemp >/dev/null ; then echo "Please Install mktemp"; exit 1; fi
-if ! which virsh >/dev/null ; then echo "Please Install libvirt-bin"; exit 1; fi
+#if ! which virsh >/dev/null ; then echo "Please Install libvirt-bin"; exit 1; fi
 if ! which xmlstarlet >/dev/null ; then echo "Please Install xmlstarlet"; exit 1; fi
 
-DUMMY=10
+#DUMMY=10
 echo "Check plausibility:"
 resources=$(crm configure show grp_$VSERVERNAME 2>&1 | sed '/^group/{s/^group grp_'$VSERVERNAME' //; s/ \\$//; p}; d')
 for res in $resources; do
@@ -110,6 +110,8 @@ rm /etc/drbd.d/vs_$VSERVERNAME.res
 drbd-conf-sync-after
 ssh $HOST2 rm /etc/drbd.d/vs_$VSERVERNAME.res
 ssh $HOST2 drbd-conf-sync-after
+#resource monitor ueberreste loeschen
+crm --wait resource cleanup res_drbd_drbd$VSERVERNAME
 echo "Deleting LVs"
 lvremove --force /dev/$VG1/vs_$VSERVERNAME
 ssh $HOST2 lvremove --force /dev/$VG2/vs_$VSERVERNAME
