@@ -26,7 +26,7 @@ while true ; do
     --drbd)    DRBD=$2; shift 2;;
     --print-crm-only) CRMONLY=1; shift 1;;
     --force-dataloss) FORCE_DATALOSS=1; shift 1;;
-    --help|-h) print_help;;
+    --help|-h) print_help; shift 1; exit 1;;
     --) shift ; break ;;
     *) echo "Unknown parameter $1, try -h" ; exit 1 ;;
   esac
@@ -124,9 +124,10 @@ EOF
   ssh $HOST2 mkdir $LXC_BASE/$VSNAME
 fi
 LXCHA=ocf:lihas:lxc
-if [ -e /usr/lib/ocf/resource.d/heartbeat/lxc ]; then
-  LXCHA=ocf:heartbeat:lxc
-fi
+# OCF_REYKEY_container collides with something inside pacemaker, see http://clusterlabs.org/pipermail/users/2015-April/000197.html
+#if [ -e /usr/lib/ocf/resource.d/heartbeat/lxc ]; then
+#  LXCHA=ocf:heartbeat:lxc
+#fi
 cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 primitive res_drbd_drbd$DRBD_$VSNAME ocf:linbit:drbd \
         params drbd_resource="lxc_$VSNAME" \
@@ -147,7 +148,7 @@ primitive res_fs_$VSNAME ocf:heartbeat:Filesystem \
         op monitor interval="20" timeout="40" start-delay="0" \
         op notify interval="0" timeout="60"
 primitive res_lxc_$VSNAME $LXCHA \
-        params container="$VSNAME" config="/var/lib/lxc/$VSNAME/config" log="/var/log/lxc/$VSNAME" use_screen="true" \
+        params lxcname="$VSNAME" config="/var/lib/lxc/$VSNAME/config" log="/var/log/lxc/$VSNAME" use_screen="true" \
         operations \$id="res_lxc_$VSNAME-operations" \
         op start interval="0" timeout="600" \
         op stop interval="0" timeout="180" \
