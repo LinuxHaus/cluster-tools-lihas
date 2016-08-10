@@ -82,6 +82,9 @@ if ! which xmlstarlet >/dev/null ; then echo "Please Install xmlstarlet"; exit 1
 if [ "ga$DRBD" == "ga" ]; then
   DRBD=$(drbdnextfree)
 fi
+if [ $DRBD -gt 99 ]; then
+  error "DRBD must be <100"
+fi
 
 DRBDPORT=$(printf "%02i" $DRBD)
 

@@ -62,6 +62,9 @@ if [ ga$DRBD == ga ]; then
   # Naechstes freies DRBD
   DRBD=$(drbdnextfree)
 fi
+if [ $DRBD -gt 99 ]; then
+  error "DRBD must be <100"
+fi
 
 DRBDPORT=$(printf "%02i" $DRBD)
 

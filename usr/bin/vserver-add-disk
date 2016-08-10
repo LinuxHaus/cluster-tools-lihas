@@ -33,6 +33,9 @@ if [ ga$4 == ga ]; then
 else
   DRBD=$4
 fi
+if [ $DRBD -gt 99 ]; then
+  error "DRBD must be <100"
+fi
 
 DRBDPORT=$(printf "%03i" $DRBD)
 DRBDVERSION=$(drbdversion)
