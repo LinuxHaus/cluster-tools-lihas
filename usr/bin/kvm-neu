@@ -1,11 +1,11 @@
 #!/bin/bash
 
-[ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
 CRMONLY=0
 KVMNAME=""
 SIZE=""
 DRBD=""
 OPENVSWITCH=${OPENVSWITCH:-0}
+[ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
 
 print_help() {
 	echo "Usage: $0 --name=KVMNAME --size=SIZE --drbd=DRBDNUM --openvswitch [--print-crm-only]" >&2

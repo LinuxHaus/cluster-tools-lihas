@@ -1,7 +1,7 @@
 #!/bin/bash
 
-
-[ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
+FAI_ADDCLASSES=""
+FAI_CONFIG_SRC=""
 VSNAME=""
 IP=""
 SIZE=""
@@ -9,14 +9,17 @@ CONTEXT=""
 DRBD=""
 CRMONLY=0
 ARCHITECTURE=""
+[ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
 
 print_help() {
-  echo "Usage: $0 --name=VSNAME --ip=IP --size=SIZE --context=CTX --drbd=DRBDNUM [--print-crm-only]" >&2
+  echo "Usage: $0 --name=VSNAME --ip=IP --size=SIZE --context=CTX --drbd=DRBDNUM [--fai-classes=FAICLASS1,FAICLASS2] [--fai-config-src=git+ssh://USER@HOST/fai] [--print-crm-only]" >&2
   echo "--name:    Name of VServer" >&2
   echo "--ip:      IP of VServer" >&2
   echo "--size:    virtual disk size, e.g. 10G" >&2
   echo "--context: VServer context id" >&2
   echo "--drbd:    drbd device number to use" >&2
+  echo "--fai-classes:    Use FAI to install, use these classes" >&2
+  echo "--fai-config-src:    FAI_CONFIG_SRC" >&2
   echo "--print-crm-only:    just print the resulting crm resources" >&2
   echo "--arch:    choose vserver achitecture, e.g. i386 or amd64" >&2
 }
@@ -36,6 +39,8 @@ while true ; do
     --context) CONTEXT=$2; shift 2;;
     --drbd)    DRBD=$2; shift 2;;
     --arch)    ARCH=$2; shift 2;;
+    --faiclasses)    FAI_ADDCLASSES=$2; shift 2;;
+    --fai-config-src)    FAI_CONFIG_SRC=$2; shift 2;;
     --print-crm-only) CRMONLY=1; shift 1;;
     --help|-h) print_help;;
     --) shift ; break ;;
@@ -140,19 +145,25 @@ EOF
 
 	mkfs.ext4 -L vs_$VSNAME /dev/drbd$DRBD
 	mount /dev/drbd$DRBD /mnt
-	vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m debootstrap -- -d $DEBIANDIST  -- $ARCHITECTURE --include=vim,etckeeper,less,nullmailer,bash-completion,bash-builtins,zsh,strace,lsof,debconf-utils,heirloom-mailx,bind9-host,busybox,tcpdump --exclude=dmidecode,isc-dhcp-client,isc-dhcp-common,kmod,nano,ifupdown,iptables --components=main,contrib,non-free
-	cat $VSERVER_TEMPLATE/etc/apt/sources.list > $VSERVER_BASE/$VSNAME/etc/apt/sources.list
+  if [ "x$FAI_ADDCLASSES" != "x" ] && [ "x$FAI_CONFIG_SRC" != "x" ]; then
+    echo FAI not implemented
+    exit 1
+    vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m fai -- -f fai 
+  else
+		vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m debootstrap -- -d $DEBIANDIST  -- $ARCHITECTURE --include=vim,etckeeper,less,nullmailer,bash-completion,bash-builtins,zsh,strace,lsof,debconf-utils,heirloom-mailx,bind9-host,busybox,tcpdump --exclude=dmidecode,isc-dhcp-client,isc-dhcp-common,kmod,nano,ifupdown,iptables --components=main,contrib,non-free
+		cat $VSERVER_TEMPLATE/etc/apt/sources.list > $VSERVER_BASE/$VSNAME/etc/apt/sources.list
+  fi
 	sed -i '/tmpfs/d' /etc/vservers/$VSNAME/fstab
-	sed -i -e '/#HWCLOCKACCESS=yes$/aHWCLOCKACCESS=no' /vservers/"$VSNAME"/etc/default/hwclock
-	ln -sf /proc/mounts /vservers/"$VSNAME"/etc/mtab
-	ln -sf bash /vservers/"$VSNAME"/bin/sh
-	sed -i -e 's/\(^[^#].*getty.*$\)/#\1/' /vservers/"$VSNAME"/etc/inittab
-	sed -i -e '/imklog/s/^/#/' /vservers/"$VSNAME"/etc/rsyslog.conf
-	echo "Europe/Berlin" > /vservers/"$VSNAME"/etc/timezone
-	echo . /etc/bash_completion >> /vservers/"$VSNAME"/root/.bashrc
+	sed -i -e '/#HWCLOCKACCESS=yes$/aHWCLOCKACCESS=no' /vservers/"$VSNAME"/vdir/etc/default/hwclock
+	ln -sf /proc/mounts /vservers/"$VSNAME"/vdir/etc/mtab
+	ln -sf bash /vservers/"$VSNAME"/vdir/bin/sh
+	sed -i -e 's/\(^[^#].*getty.*$\)/#\1/' /vservers/"$VSNAME"/vdir/etc/inittab
+	sed -i -e '/imklog/s/^/#/' /vservers/"$VSNAME"/vdir/etc/rsyslog.conf
+	echo "Europe/Berlin" > /vservers/"$VSNAME"/vdir/etc/timezone
+	echo . /etc/bash_completion >> /vservers/"$VSNAME"/vdir/root/.bashrc
 	echo export HISTTIMEFORMAT=\"%Y-%m-%d -- %H:%M:%S \" >> /vservers/"$VSNAME"/root/.bashrc
 	echo export HISTSIZE=50000 >> /vservers/"$VSNAME"/root/.bashrc
-	rm /vservers/"$VSNAME"/etc/rc6.d/*{???hwclock.sh,???umountnfs.sh,???umountfs,???umountroot}
+	rm /vservers/"$VSNAME"/vdir/etc/rc6.d/*{???hwclock.sh,???umountnfs.sh,???umountfs,???umountroot}
 
 	touch /etc/vservers/$VSNAME/interfaces/0/nodev
 	mv $VSERVER_BASE/$VSNAME/* /mnt/
