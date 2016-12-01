@@ -1,13 +1,22 @@
 #!/bin/bash
 
-[ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
 
 print_help() {
   echo "Usage: $0 --name=VSNAME --ip=IP --size=SIZE --context=CTX --drbd=DRBDNUM [--print-crm-only]" >&2
   echo "--name:    Name of LXC Container" >&2
+  echo "--dist:    distribution" >&2
+  echo "--release: distribution release" >&2
+  echo "--single:  No HA/DRBD" >&2
+  echo "--unpriv:  unprivileged container" >&2
+  echo "--mac:     container MAC address" >&2
   echo "--size:    Size of partition" >&2
   echo "--drbd:    drbd device number to use" >&2
+  echo "--ip:      ip of guest" >&2
+  echo "--netmask: netmask of guest" >&2
+  echo "--gateway:      ip of guest" >&2
+  echo "--interface:    host network interface" >&2
   echo "--print-crm-only:    just print the resulting crm resources" >&2
+  echo "--force-dataloss:    use lv despite it already exists" >&2
 }
 error() {
   print_help
@@ -16,14 +25,41 @@ error() {
 }
 CRMONLY=0
 FORCE_DATALOSS=0
-TEMP=`getopt -o h --long help,name:,size:,drbd:,force-dataloss,print-crm-only -- "$@"`
+SINGLE=0
+UNPRIV=0
+CONTAINER_PACKAGES_ARG="sysvinit-core wget"
+CONTAINER_SUBUID=$(awk -F':' 'BEGIN {base=100000; offset=0} $2 > base {base=$2; offset=$3}; END {print base+offset+1}' /etc/subuid)
+CONTAINER_SUBGID=$(awk -F':' 'BEGIN {base=100000; offset=0} $2 > base {base=$2; offset=$3}; END {print base+offset+1}' /etc/subgid)
+CONTAINER_MACADDR_PFX=22
+CONTAINER_NETMASK=24
+DIST=debian
+RELEASE=jessie
+IF_LAN=br0
+MAC_RAND=$(
+  perl -le 'sysread(STDIN,$a,5); (@a)=unpack("CCCCC",$a); printf "%02x:%02x:%02x:%02x:%02x\n",@a' < /dev/random
+)
+CONTAINER_MACADDR="$CONTAINER_MACADDR_PFX:$MAC_RAND"
+if [ $CONTAINER_SUBUID -lt $CONTAINER_SUBGID ]; then
+  CONTAINER_SUBUID=$CONTAINER_SUBGID
+fi
+[ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
+TEMP=`getopt -o h --long help,single,unpriv,name:,size:,drbd:,ip:,netmask:,gateway:,interface:,dist:,release:,force-dataloss,print-crm-only -- "$@"`
 if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
 while true ; do
   case "$1" in
+    --single)  SINGLE=1; shift 1;;
+    --unpriv)  UNPRIV=1; shift 1;;
+    --mac)     CONTAINER_MACADDR=2; shift 2;;
     --name)    VSNAME=$2; shift 2;;
     --size)    SIZE=$2; shift 2;;
     --drbd)    DRBD=$2; shift 2;;
+    --dist)    DIST=$2; shift 2;;
+    --release) RELEASE=$2; shift 2;;
+    --ip)      CONTAINER_IP=$2; shift 2;;
+    --netmask) CONTAINER_NETMASK=$2; shift 2;;
+    --gateway) CONTAINER_GATEWAY=$2; shift 2;;
+    --interface) IF_LAN=$2; shift 2;;
     --print-crm-only) CRMONLY=1; shift 1;;
     --force-dataloss) FORCE_DATALOSS=1; shift 1;;
     --help|-h) print_help; shift 1; exit 1;;
@@ -42,52 +78,117 @@ if [ "x$SIZE" == "x" ]; then
   print_help
   exit 1
 fi
+if [ $UNPRIV -eq 1 ] && [ $SINGLE -eq 0 ]; then
+  echo "unprivileged containers are not yet supported in HA environments" >&2
+  print_help
+  exit 1
+fi
 
 # IF Abfragen nach dem installierten Software, die benoetigt wird
 if [ ! -e /usr/bin/which    ] ; then echo "which ist nicht installiert!!!"; exit 1; fi
-if ! which crm      >/dev/null 2>&1; then echo "Please Install crm"; exit 1; fi
-if ! which drbdadm  >/dev/null 2>&1; then echo "Please Install drbd"; exit 1; fi
+
+if [ "x$SINGLE" == "x0" ]; then
+  if ! which crm      >/dev/null 2>&1; then echo "Please Install crm"; exit 1; fi
+  if ! which drbdadm  >/dev/null 2>&1; then echo "Please Install drbd"; exit 1; fi
+  if ! which rsync    >/dev/null 2>&1; then echo "Please Install rsync"; exit 1; fi
+  if ! which ssh      >/dev/null 2>&1; then echo "Please Install openssh"; exit 1; fi
+fi
 if ! which awk      >/dev/null 2>&1; then echo "Please Install awk"; exit 1; fi
-if ! which ssh      >/dev/null 2>&1; then echo "Please Install openssh"; exit 1; fi
 if ! which lvcreate >/dev/null 2>&1; then echo "Please Install lvm2"; exit 1; fi
-if ! which rsync    >/dev/null 2>&1; then echo "Please Install rsync"; exit 1; fi
 if ! which mktemp   >/dev/null 2>&1; then echo "Please Install mktemp"; exit 1; fi
 if ! which ipcalc   >/dev/null 2>&1; then echo "Please Install ipcalc"; exit 1; fi
+if [ "x$VG1" == x ] || ! vgs | sed '1d' | grep -qw "$VG1"; then
+  VG1=$(vgs | sed '1d' | awk '{print $1}')
+fi
+if [ "x$HOST1" == "x" ]; then
+    HOST1=$(hostname)
+fi
+if [ "x$HOST2" == "x" ]; then
+    HOST2=otherside
+fi
+if [ "x$SINGLE" == "x0" ]; then
+  if [ "x$VG2" == x ] || ! ssh $HOST2 vgs --noheadings | grep -qw "$VG2"; then
+    VG2=$(ssh $HOST2 vgs | sed '1d' | awk '{print $1}')
+  fi
+fi
 
 BROADCAST=$(ipcalc $IP/$IF_LAN_NM | awk '$2 ~ /^Broadcast:$/ {print $2}')
-. $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
-DRBDVERSION=$(drbdversion)
-
-if [ ga$DRBD == ga ]; then
-  # Naechstes freies DRBD
-  DRBD=$(drbdnextfree)
+if [ "x$SINGLE" == "x0" ]; then
+  . $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
+  DRBDVERSION=$(drbdversion)
+  
+  if [ ga$DRBD == ga ]; then
+    # Naechstes freies DRBD
+    DRBD=$(drbdnextfree)
+  fi
+  if [ $DRBD -gt 99 ]; then
+    error "DRBD must be <100"
+  fi
+  
+  DRBDPORT=$(printf "%02i" $DRBD)
 fi
-if [ $DRBD -gt 99 ]; then
-  error "DRBD must be <100"
-fi
-
-DRBDPORT=$(printf "%02i" $DRBD)
-
 DUMMY=10
 
 if [ $CRMONLY -eq 0 ]; then
   if [ $FORCE_DATALOSS -ne 1 ]; then
-    if [ -e /etc/drbd.d/lxc_$VSNAME.res ]; then
-      echo "WARNING: /etc/drbd.d/lxc_$VSNAME.res already exists, use --force-data-loss to continue anyway" >&2
-      exit 1
+    if [ "x$SINGLE" == "x0" ]; then
+      if [ -e /etc/drbd.d/lxc_$VSNAME.res ]; then
+        echo "WARNING: /etc/drbd.d/lxc_$VSNAME.res already exists, use --force-data-loss to continue anyway" >&2
+        exit 1
+      fi
     fi
     if [ $(lvs | awk '$2 == "'$VG1'" && $1 == "'lxc_$VSNAME'" {print}' | wc -l ) -ne 0 ]; then
       echo "WARNING: /dev/$VG1/lxc_$VSNAME already exists, use --force-data-loss to continue anyway" >&2
       exit 1
     fi
-    if [ $(ssh $HOST2 lvs | awk '$2 == "'$VG2'" && $1 == "'lxc_$VSNAME'" {print}' | wc -l ) -ne 0 ]; then
-      echo "WARNING: $HOST2:/dev/$VG2/lxc_$VSNAME already exists, use --force-data-loss to continue anyway" >&2
-      exit 1
+    if [ "x$SINGLE" == "x0" ]; then
+      if [ $(ssh $HOST2 lvs | awk '$2 == "'$VG2'" && $1 == "'lxc_$VSNAME'" {print}' | wc -l ) -ne 0 ]; then
+        echo "WARNING: $HOST2:/dev/$VG2/lxc_$VSNAME already exists, use --force-data-loss to continue anyway" >&2
+        exit 1
+      fi
     fi
   fi
+  cat <<-EOF
+	Summary:
+	***********************
+	* CLUSTER is untested *
+	***********************
+	LXC-Name:  $VSNAME
+	Dist:      $DIST
+	Release:   $RELEASE
+	HOST1:     $HOST1
+	HOST2:     $HOST2
+	DRBDPORT:  $DRBDPORT
+	Single:    $SINGLE
+	LVM1-Name: $HOST1:/dev/$VG1/lxc_$VSNAME
+	LVM2-Name: $HOST2:/dev/$VG2/lxc_$VSNAME
+	LVM-Size:  $SIZE
+	Packages:  $CONTAINER_PACKAGES_ARG
+	UID-Base:  $CONTAINER_SUBUID
+	GID-Base:  $CONTAINER_SUBGID
+	MAC:       $CONTAINER_MACADDR
+	HOST-net:  $IF_LAN
+	Netz:      $CONTAINER_IP/$CONTAINER_NETMASK
+	Gateway    $CONTAINER_GATEWAY
+	***********************
+	* CLUSTER is untested *
+	***********************
+	continue: return, ctrl-c to abort
+EOF
+  read a
   lvcreate -L$SIZE -n lxc_$VSNAME $VG1
-  ssh $HOST2 lvcreate -L$SIZE -n lxc_$VSNAME $VG2
-  cat <<-EOF > /etc/drbd.d/lxc_$VSNAME.res
+  touch /etc/subuid
+  vo -o /etc/subuid
+  cat <<-EOF >> /etc/subuid
+	root:$CONTAINER_SUBUID:65536
+EOF
+  cat <<-EOF >> /etc/subgid
+	root:$CONTAINER_SUBUID:65536
+EOF
+  vo -i /etc/subuid
+  if [ "x$SINGLE" == "x0" ]; then
+    ssh $HOST2 lvcreate -L$SIZE -n lxc_$VSNAME $VG2
+    cat <<-EOF > /etc/drbd.d/lxc_$VSNAME.res
 resource lxc_$VSNAME {  
         protocol        C;
         syncer {
@@ -108,60 +209,138 @@ resource lxc_$VSNAME {
 }
 EOF
   
-  rsync -rlHpogDtSvx /etc/drbd.d $HOST2:/etc/
-  yes yes | drbdadm create-md lxc_$VSNAME
-  drbdadm up lxc_$VSNAME
-  ssh $HOST2 "(yes yes | drbdadm create-md lxc_$VSNAME && drbdadm up lxc_$VSNAME)"
-  
-  drbdprimaryforce $DRBDVERSION lxc_$VSNAME
-  
-  mkfs.ext4 -L lxc_$VSNAME /dev/drbd$DRBD
-  mount /dev/drbd$DRBD /mnt
-  
-  # wget http://freedomboxblog.nl/wp-content/uploads/lxc-debian-wheezy.gz -O- | gzip -d > /usr/share/lxc/templates/lxc-debian-wheezy; chown root:root /usr/share/lxc/templates/lxc-debian-wheezy; chmod +x /usr/share/lxc/templates/lxc-debian-wheezy
-  
+    rsync -rlHpogDtSvx /etc/drbd.d $HOST2:/etc/
+    yes yes | drbdadm create-md lxc_$VSNAME
+    drbdadm up lxc_$VSNAME
+    ssh $HOST2 "(yes yes | drbdadm create-md lxc_$VSNAME && drbdadm up lxc_$VSNAME)"
+    
+    drbdprimaryforce $DRBDVERSION lxc_$VSNAME
+    
+    mkfs.ext4 -L lxc_$VSNAME /dev/drbd$DRBD
+    mkdir /var/lib/lxc/$VSNAME
+    mount /dev/drbd$DRBD /var/lib/lxc/$VSNAME
+    ssh $HOST2 mkdir /var/lib/lxc/$VSNAME
+  else
+    mkfs.ext4 -L lxc_$VSNAME /dev/$VG1/lxc_$VSNAME
+    mkdir -p /etc/RCS
+    vo -o /etc/fstab
+    cat <<-EOF >> /etc/fstab
+	/dev/$VG1/lxc_$VSNAME /var/lib/lxc/$VSNAME ext4 barrier=0,noatime 0 2
+EOF
+    vo -i /etc/fstab
+    mkdir /var/lib/lxc/$VSNAME
+    mount /var/lib/lxc/$VSNAME
+  fi
   # lxc-create -n $VSNAME -t debian-wheezy
-  lxc-create -n $VSNAME -t debian
-  mv $LXC_BASE/$VSNAME/* /mnt/
-  umount /mnt 
-  ssh $HOST2 mkdir $LXC_BASE/$VSNAME
+  lxc-create -n $VSNAME -t $DIST -- -r $RELEASE $CONTAINER_PACKAGES_ARG
+  if [ ! -f /var/lib/lxc/default.conf ] ; then
+    touch /var/lib/lxc/default.conf
+    vo -o 
+    cat <<-EOF > /var/lib/lxc/default.conf
+	lxc.autodev = 1
+	lxc.kmsg = 0
+	
+	lxc.network.type = veth
+	lxc.network.flags = up
+	lxc.network.name = eth0
+	
+	lxc.mount.auto = sys:ro proc:mixed cgroup-full:mixed
+	
+	lxc.cap.keep = chown net_raw dac_override dac_read_search fowner fsetid kill setgid setuid linux_immutable net_bind_service net_broadcast ipc_lock ipc_owner sys_chroot sys_ptrace sys_pacct sys_boot sys_nice sys_resource sys_tty_config lease audit_write audit_control syslog wake_alarm 
+	
+	lxc.pts = 1024
+	
+	lxc.cgroup.devices.deny = a
+	
+	# --- devices --- # 
+	# /dev/null and zero
+	lxc.cgroup.devices.allow = c 1:3 rwm
+	lxc.cgroup.devices.allow = c 1:5 rwm
+	
+	# consoles
+	lxc.cgroup.devices.allow = c 5:1 rwm
+	lxc.cgroup.devices.allow = c 5:0 rwm
+	lxc.cgroup.devices.allow = c 4:0 rwm
+	lxc.cgroup.devices.allow = c 4:1 rwm
+	
+	# /dev/{,u}random
+	lxc.cgroup.devices.allow = c 1:9 rwm
+	lxc.cgroup.devices.allow = c 1:8 rwm
+	lxc.cgroup.devices.allow = c 136:* rwm
+	lxc.cgroup.devices.allow = c 5:2 rwm
+	
+	# rtc
+	lxc.cgroup.devices.allow = c 254:0 rwm
+	
+	lxc.mount.entry=run run tmpfs rw,nosuid,nodev,relatime,mode=755 0 0
+EOF
+    vo -i /var/lib/lxc/default.conf
+  fi
+  # Die Container-spezifische Config
+  touch /var/lib/lxc/$VSNAME/config
+  mkdir -p /var/lib/lxc/$VSNAME/RCS
+  vo -o /var/lib/lxc/$VSNAME/config
+  cat << EOF > /var/lib/lxc/$VSNAME/config
+	lxc.include = /var/lib/lxc/default.conf
+	
+	lxc.rootfs = /var/lib/lxc/$VSNAME/rootfs
+	lxc.utsname = $VSNAME
+	
+	lxc.network.link = $IF_LAN
+	lxc.network.hwaddr = $CONTAINER_MACADDR
+	lxc.network.ipv4 = $CONTAINER_IP/$CONTAINER_NETMASK
+	lxc.network.ipv4.gateway = $CONTAINER_GATEWAY
+	lxc.network.veth.pair = $VSNAME
+	
+	lxc.id_map = u 0 $CONTAINER_SUBUID 65536
+	lxc.id_map = g 0 $CONTAINER_SUBUID 65536
+	
+	lxc.start.auto = 1
+EOF
+  vo -i /var/lib/lxc/$VSNAME/config
+
+  # permissions auf das subuid-Setup anpassen:
+  ownrecalc -U "*" -G "*" -u +$CONTAINER_SUBUID -g +$CONTAINER_SUBUID -d /var/lib/lxc/$VSNAME/rootfs
+
 fi
 LXCHA=ocf:lihas:lxc
 # OCF_REYKEY_container collides with something inside pacemaker, see http://clusterlabs.org/pipermail/users/2015-April/000197.html
 #if [ -e /usr/lib/ocf/resource.d/heartbeat/lxc ]; then
 #  LXCHA=ocf:heartbeat:lxc
 #fi
-cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
-primitive res_drbd_drbd$DRBD_$VSNAME ocf:linbit:drbd \
-        params drbd_resource="lxc_$VSNAME" \
-        operations \$id="res_drbd_drbd$VSNAME-operations" \
-        op start interval="0" timeout="240" \
-        op promote interval="0" timeout="90" \
-        op demote interval="0" timeout="90" \
-        op stop interval="0" timeout="100" \
-        op monitor interval="10" timeout="20" start-delay="0" \
-        op notify interval="0" timeout="90"
-ms ms_$VSNAME res_drbd_drbd$DRBD_$VSNAME \
-        meta notify="true" migration-threshold="10"
-primitive res_fs_$VSNAME ocf:heartbeat:Filesystem \
-        params device="/dev/drbd$DRBD" directory="$LXC_BASE/$VSNAME" fstype="ext4" options="noatime,stripe=64,barrier=0" \
-        operations \$id="res_fs_$VSNAME-operations" \
-        op start interval="0" timeout="600" \
-        op stop interval="0" timeout="60" \
-        op monitor interval="20" timeout="40" start-delay="0" \
-        op notify interval="0" timeout="60"
-primitive res_lxc_$VSNAME $LXCHA \
-        params lxcname="$VSNAME" config="/var/lib/lxc/$VSNAME/config" log="/var/log/lxc/$VSNAME" use_screen="true" \
-        operations \$id="res_lxc_$VSNAME-operations" \
-        op start interval="0" timeout="600" \
-        op stop interval="0" timeout="180" \
-        op monitor interval="10" timeout="20" start-delay="5" \
-        meta target-role="Started"
-group grp_$VSNAME res_fs_$VSNAME res_lxc_$VSNAME
-colocation col_grp_$VSNAME-ms_$VSNAME inf: grp_$VSNAME ms_$VSNAME:Master
-order ord_ms_$VSNAME-grp_$VSNAME inf: ms_$VSNAME:promote grp_$VSNAME:start
-commit
+if [ "x$SINGLE" == "x0" ]; then
+  cat <<-EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
+	primitive res_drbd_drbd$DRBD_$VSNAME ocf:linbit:drbd \
+	        params drbd_resource="lxc_$VSNAME" \
+	        operations \$id="res_drbd_drbd$VSNAME-operations" \
+	        op start interval="0" timeout="240" \
+	        op promote interval="0" timeout="90" \
+	        op demote interval="0" timeout="90" \
+	        op stop interval="0" timeout="100" \
+	        op monitor interval="10" timeout="20" start-delay="0" \
+	        op notify interval="0" timeout="90"
+	ms ms_$VSNAME res_drbd_drbd$DRBD_$VSNAME \
+	        meta notify="true" migration-threshold="10"
+	primitive res_fs_$VSNAME ocf:heartbeat:Filesystem \
+	        params device="/dev/drbd$DRBD" directory="$LXC_BASE/$VSNAME" fstype="ext4" options="noatime,stripe=64,barrier=0" \
+	        operations \$id="res_fs_$VSNAME-operations" \
+	        op start interval="0" timeout="600" \
+	        op stop interval="0" timeout="60" \
+	        op monitor interval="20" timeout="40" start-delay="0" \
+	        op notify interval="0" timeout="60"
+	primitive res_lxc_$VSNAME $LXCHA \
+	        params lxcname="$VSNAME" config="/var/lib/lxc/$VSNAME/config" log="/var/log/lxc/$VSNAME" use_screen="true" \
+	        operations \$id="res_lxc_$VSNAME-operations" \
+	        op start interval="0" timeout="600" \
+	        op stop interval="0" timeout="180" \
+	        op monitor interval="10" timeout="20" start-delay="5" \
+	        meta target-role="Started"
+	group grp_$VSNAME res_fs_$VSNAME res_lxc_$VSNAME
+	colocation col_grp_$VSNAME-ms_$VSNAME inf: grp_$VSNAME ms_$VSNAME:Master
+	order ord_ms_$VSNAME-grp_$VSNAME inf: ms_$VSNAME:promote grp_$VSNAME:start
+	commit
 EOF
+fi
 
 if [ "x$VSHOOKPOST" != "x" ]; then
   export VSNAME
