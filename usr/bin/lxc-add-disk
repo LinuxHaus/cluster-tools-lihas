@@ -1,0 +1,167 @@
+#!/bin/bash
+
+[ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
+
+print_help() {
+        echo "Usage: $0 --name=LXCNAME --path=PATH --size=SIZE --drbd=DRBDNUM" >&2
+        echo "--name: Name of LXC-container" >&2
+        echo "--path:    mountpoint within lxc-container" >&2
+        echo "--size:    virtual disk size, e.g. 10G" >&2
+        echo "--drbd:    drbd device number to use" >&2
+}
+
+error() {
+  print_help
+  echo "$*"
+  exit 1
+}
+TEMP=`getopt -o h --long help,name:,size:,drbd:,path: -- "$@"`
+if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
+eval set -- "$TEMP"
+while true ; do
+        case "$1" in
+                --name) VSNAME=$2; shift 2;;
+                --size) SIZE=$2; shift 2;;
+                --path) MNTPOINT=$2; shift 2;;
+                --drbd) DRBD=$2; shift 2;;
+                --help|-h) print_help; exit 1;;
+                --) shift ; break ;;
+                *) echo "Unknown parameter $1i, try -h" ; exit 1 ;;
+        esac
+done
+
+if [ "x$VSNAME" == "x" ]; then
+        echo "Missing --name" >&2
+        print_help
+        exit 1
+fi
+if [ "x$SIZE" == "x" ]; then
+        echo "Missing --size" >&2
+        print_help
+        exit 1
+fi
+if [ "x$MNTPOINT" == "x" ]; then
+        echo "Missing --path" >&2
+        print_help
+        exit 1
+fi
+
+# IF Abfragen nach dem installierten Software, die benoetigt wird
+if !([ -e /usr/bin/which ]) ; then echo "which ist nicht installiert!!!"; exit 1; fi
+if !([ -e $(which mount) ]) ; then echo "Please Install mount"; exit 1; fi
+if !([ -e $(which crm) ]) ; then echo "Please Install crm"; exit 1; fi
+if !([ -e $(which drbdadm) ]) ; then echo "Please Install drbd"; exit 1; fi
+if !([ -e $(which awk) ]) ; then echo "Please Install awk"; exit 1; fi
+if !([ -e $(which sort) ]) ; then echo "Please Install sort"; exit 1; fi
+if !([ -e $(which tail) ]) ; then echo "Please Install tail"; exit 1; fi
+if !([ -e $(which printf) ]) ; then echo "Please Install printf"; exit 1; fi
+if !([ -e $(which ssh) ]) ; then echo "Please Install openssh"; exit 1; fi
+if !([ -e $(which lvcreate) ]) ; then echo "Please Install lvm2"; exit 1; fi
+if !([ -e $(which rsync) ]) ; then echo "Please Install rsync"; exit 1; fi
+if !([ -e $(which mkfs.ext4) ]) ; then echo "Please Install e2fsprogs"; exit 1; fi
+
+. $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
+if [ ga$4 == ga ]; then
+  DRBD=$(drbdnextfree)
+else
+  DRBD=$4
+fi
+if [ $DRBD -gt 99 ]; then
+  error "DRBD must be <100"
+fi
+
+DRBDPORT=$(printf "%03i" $DRBD)
+DRBDVERSION=$(drbdversion)
+
+DUMMY=10
+
+RESNAME=lxc_${VSNAME}$(sed 's#/#_#g' <<< $MNTPOINT)
+
+if [ ! -d $LXC_BASE/$VSNAME/rootfs$MNTPOINT ]; then
+  echo "$LXC_BASE/$VSNAME/rootfs$MNTPOINT should exist" >&2
+  exit 1
+fi
+
+lvcreate -L$SIZE -n $RESNAME $VG1
+ssh $HOST2 lvcreate -L$SIZE -n $RESNAME $VG2
+
+cat <<-EOF > /etc/drbd.d/$RESNAME.res
+resource $RESNAME {  
+        protocol        C;
+        syncer {
+                rate    2000M;
+        }
+        on $HOST1 {
+                device          /dev/drbd$DRBD;
+                disk            /dev/$VG1/$RESNAME;
+                flexible-meta-disk      internal;
+                address         $IP_DRBD1:7$DRBDPORT;
+        }
+        on $HOST2 {
+                device          /dev/drbd$DRBD;
+                disk            /dev/$VG2/$RESNAME;
+                flexible-meta-disk      internal;
+                address         $IP_DRBD2:7$DRBDPORT;
+        }
+}
+EOF
+
+rsync -rlHpogDtSvx /etc/drbd.d $HOST2:/etc/
+yes yes | drbdadm create-md $RESNAME
+drbdadm up $RESNAME
+ssh $HOST2 "(yes yes | drbdadm create-md $RESNAME && drbdadm up $RESNAME)"
+
+drbdprimaryforce $DRBDVERSION $RESNAME
+
+mkfs.ext4 -L $RESNAME /dev/drbd$DRBD
+mount /dev/drbd$DRBD /mnt
+# mv $LXC_BASE/$VSNAME/rootfs/$MNTPOINT/. /mnt/
+crm resource stop res_lxc_$VSNAME
+while crm resource status res_lxc_$VSNAME | grep -q 'is running'; do
+  sleep 1
+done
+
+rsync  -rlHpogDtSxAX --numeric-ids $LXC_BASE/$VSNAME/rootfs/$MNTPOINT/ /mnt/
+if [ $? -eq 0 ]; then
+	rm -rf $LXC_BASE/$VSNAME/rootfs/$MNTPOINT/*
+fi
+
+umount /mnt 
+
+cat <<EOF | crm configure
+primitive p_$RESNAME ocf:linbit:drbd \
+        params drbd_resource="$RESNAME" \
+        op start interval="0" timeout="240" \
+        op promote interval="0" timeout="90" \
+        op demote interval="0" timeout="90" \
+        op stop interval="0" timeout="100" \
+        op monitor interval="10" timeout="20" start-delay="0" \
+        op notify interval="0" timeout="90" \
+        meta target-role="started"
+ms ms_$RESNAME p_$RESNAME \
+        meta clone-max="2" notify="true"
+commit
+EOF
+
+cat <<EOF | crm configure
+primitive res_fs_$RESNAME ocf:heartbeat:Filesystem \
+        params device="/dev/drbd$DRBD" directory="$LXC_BASE/$VSNAME/rootfs$MNTPOINT" fstype="ext4" options="noatime,stripe=64,barrier=0" \
+        operations \$id="res_fs_$RESNAME-operations" \
+        op start interval="0" timeout="600" \
+        op stop interval="0" timeout="60" \
+        op monitor interval="20" timeout="40" start-delay="0" \
+        op notify interval="0" timeout="60" \
+        meta is-managed="false"
+commit
+EOF
+
+cat <<EOF | crm configure
+colocation col_ms_$RESNAME-ms_$VSNAME inf: ms_$RESNAME:Master ms_$VSNAME:Master
+order ord_ms_$RESNAME-grp_$VSNAME inf: ms_$RESNAME:promote grp_$VSNAME:start
+commit
+EOF
+
+EDITOR="sed -i '/^group grp_'$VSNAME' /,/[^\\]/{s/ res_lxc/ res_fs_'$RESNAME' res_lxc/}'" crm configure edit
+crm resource manage res_fs_$RESNAME
+crm resource start res_lxc_$VSNAME
+
