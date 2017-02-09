@@ -1,0 +1,174 @@
+#!/usr/bin/perl
+
+# Copyright (c) 2016 Chris Recktenwald
+# 
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation
+# files (the "Software"), to deal in the Software without restriction,
+# including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+# KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+# WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# 
+# (MIT License)
+# 
+# - 0.1 the journey begins
+# - 0.2 added support to restore s-bits after chown()
+#
+
+use strict;
+use File::Find;
+use English;
+
+sub usage () {
+print << 'EOF';
+	usage: $0 [-v ] [ -U { username | uid | '*' } -u uidincrement ] [ -G { groupname | gid | '*' } -g gidincrement ] -d directory
+	-U user name of files to be modified (may be "*" for any)
+	-G group name of files to be modified (may be "*" for any)
+	-u user id increment 
+	-g user id increment
+	-d directory to change owner/group in (recursively)
+	-v verbose
+
+	$0 recursively changes owner and/or group of files by adding an increment
+
+example:
+	$0 -U "*" -G "*" -u +200000 -g +200000 -d /var/lib/lxc/mycontainer/rootfs
+EOF
+}
+
+my $dirname = undef;
+my $usr     = undef;
+my $uidinc  = undef;
+my $grp     = undef;
+my $gidinc  = undef;
+my $verbose = 0;
+
+doopt(\@ARGV, {
+    # use "-x parameter"
+    -U => sub { $usr          = shift @{$_[0]} },
+    -G => sub { $grp          = shift @{$_[0]} },
+    -u => sub { $uidinc       = shift @{$_[0]} },
+    -g => sub { $gidinc       = shift @{$_[0]} },
+    -d => sub { $dirname      = shift @{$_[0]} },
+    # use "-x" as a flag
+    -v => sub { $verbose      = 1              },
+});
+
+my $uid = undef;
+my $gid = undef;
+
+# if usr is numerical use it directly
+# otherwise try to look the name up
+if ( $usr =~ /^\d+$/ ) {
+	$uid = $usr;
+} else {
+	(undef,undef,$uid,undef) = getpwnam($usr);
+}
+
+# if grp is numerical use it directly
+# otherwise try to look the name up
+if ( $grp =~ /^\d+$/ ) {
+	$gid = $grp;
+} else {
+	$gid   = getgrnam($grp);
+}
+
+if ( $dirname eq "" ) {
+	usage;
+	exit 1;
+}
+
+$verbose and print "source u/gid: $uid $gid\n";
+
+my $cnt = 0;
+
+# the find() callback function
+sub wanted {
+	# skip symlinks
+	-l and return;
+
+	my ($fuid,$fgid) = (stat)[4,5];
+	my $flag = 0;
+	my $nuid = $fuid;
+	my $ngid = $fgid;
+	$verbose and print "<: $File::Find::name - $fuid,$fgid\n";
+
+	if ( $usr eq "*" or $uid == $fuid) {
+		if ( defined $uidinc ) {
+			$nuid = $fuid + $uidinc;
+			$flag ++;
+		}
+	}
+	if ( $grp eq "*" or $gid == $fgid) {
+		if ( defined $gidinc ) {
+			$ngid = $fgid + $gidinc;
+			$flag ++;
+		}
+	}
+	if ( $flag > 0 ) {
+		my $fn = $File::Find::name;
+		$verbose and print ">: $fn - $nuid,$ngid\n";
+		# s-bits have to be restored after changing ids
+		my $mode = (stat $fn)[2];
+		my $sbits = 006000 & $mode;
+
+		chown($nuid, $ngid, $fn) or
+			warn "Error: can't chown '$fn'".(($EUID!=0)?(" (you are not 'root')"):()).": $!";
+
+		# restore permissions
+		if ( $sbits ) {
+			my $restoremode = ($mode & 007777);
+			chmod $restoremode,$fn or warn "Error: can't chmod '$fn' to '$restoremode': $!";
+		}
+		$cnt ++;
+	}
+
+}
+
+find(\&wanted, $dirname);
+$verbose and print "found $cnt files to change\n";
+
+exit 0;
+
+###########################
+## subroutine collection
+###########################
+#
+# process command line arguments
+# usage:
+#
+# doopt(\@ARGV, {
+#     # use "-x parameter"
+#     -o => sub { $outFileBase  = shift @{$_[0]} },
+#     # use "-x" as a flag
+#     -f => sub { $flag         = 1              },
+# });
+#
+#
+#
+
+sub doopt {
+    my ($argvRef, $optRef ) = @_;
+    my @ArgBak = ();
+    while ( my $arg = shift @$argvRef ) {
+        if ( defined $optRef->{$arg} ) {
+            $optRef->{$arg}->($argvRef);
+        } else {
+            push @ArgBak, $arg;
+        }
+    }
+    @$argvRef = @ArgBak;
+}
+
