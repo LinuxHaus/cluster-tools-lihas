@@ -300,8 +300,9 @@ EOF
   vo -i /var/lib/lxc/$VSNAME/config
 
   # permissions auf das subuid-Setup anpassen:
-  ownrecalc -U "*" -G "*" -u +$CONTAINER_SUBUID -g +$CONTAINER_SUBUID -d /var/lib/lxc/$VSNAME/rootfs
-
+  if [ "x$UNPRIV" == x1 ]; then
+    ownrecalc -U "*" -G "*" -u +$CONTAINER_SUBUID -g +$CONTAINER_SUBUID -d /var/lib/lxc/$VSNAME/rootfs
+  fi
 fi
 LXCHA=ocf:lihas:lxc
 # OCF_REYKEY_container collides with something inside pacemaker, see http://clusterlabs.org/pipermail/users/2015-April/000197.html
@@ -329,7 +330,7 @@ if [ "x$SINGLE" == "x0" ]; then
 	        op monitor interval="20" timeout="40" start-delay="0" \
 	        op notify interval="0" timeout="60"
 	primitive res_lxc_$VSNAME $LXCHA \
-	        params lxcname="$VSNAME" config="/var/lib/lxc/$VSNAME/config" log="/var/log/lxc/$VSNAME" use_screen="true" \
+	        params container="$VSNAME" config="/var/lib/lxc/$VSNAME/config" log="/var/log/lxc/$VSNAME" use_screen="true" \
 	        operations \$id="res_lxc_$VSNAME-operations" \
 	        op start interval="0" timeout="600" \
 	        op stop interval="0" timeout="180" \
