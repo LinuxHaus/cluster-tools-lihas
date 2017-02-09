@@ -177,13 +177,15 @@ if [ $CRMONLY -eq 0 ]; then
 EOF
   read a
   lvcreate -L$SIZE -n lxc_$VSNAME $VG1
-  touch /etc/subuid
-  vo -o /etc/subuid
-  cat <<-EOF >> /etc/subuid
+  if [ x$UNPRIV == x1 ]; then
+    touch /etc/subuid
+    vo -o /etc/subuid
+    cat <<-EOF >> /etc/subuid
 	root:$CONTAINER_SUBUID:65536
 EOF
-  cat <<-EOF >> /etc/subgid
+    cat <<-EOF >> /etc/subgid
 	root:$CONTAINER_SUBUID:65536
+  fi
 EOF
   vo -i /etc/subuid
   if [ "x$SINGLE" == "x0" ]; then
