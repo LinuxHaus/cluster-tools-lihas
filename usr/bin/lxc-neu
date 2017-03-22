@@ -33,7 +33,7 @@ CONTAINER_SUBGID=$(awk -F':' 'BEGIN {base=100000; offset=0} $2 > base {base=$2; 
 CONTAINER_MACADDR_PFX=22
 CONTAINER_NETMASK=24
 DIST=debian
-RELEASE=jessie
+RELEASE=stretch
 IF_LAN=br0
 MAC_RAND=$(
   perl -le 'sysread(STDIN,$a,5); (@a)=unpack("CCCCC",$a); printf "%02x:%02x:%02x:%02x:%02x\n",@a' < /dev/random
@@ -160,8 +160,8 @@ if [ $CRMONLY -eq 0 ]; then
 	HOST2:     $HOST2
 	DRBDPORT:  $DRBDPORT
 	Single:    $SINGLE
-	LVM1-Name: $HOST1:/dev/$VG1/lxc_$VSNAME
-	LVM2-Name: $HOST2:/dev/$VG2/lxc_$VSNAME
+	LVM1-Name: $HOST1:/dev/$VG1/lxc_${VSNAME//-/_}
+	LVM2-Name: $HOST2:/dev/$VG2/lxc_${VSNAME//-/_}
 	LVM-Size:  $SIZE
 	Packages:  $CONTAINER_PACKAGES_ARG
 	UID-Base:  $CONTAINER_SUBUID
@@ -176,7 +176,7 @@ if [ $CRMONLY -eq 0 ]; then
 	continue: return, ctrl-c to abort
 EOF
   read a
-  lvcreate -L$SIZE -n lxc_$VSNAME $VG1
+  lvcreate -L$SIZE -n lxc_${VSNAME//-/_} $VG1
   if [ x$UNPRIV == x1 ]; then
     touch /etc/subuid
     vo -o /etc/subuid
@@ -189,7 +189,7 @@ EOF
 EOF
   vo -i /etc/subuid
   if [ "x$SINGLE" == "x0" ]; then
-    ssh $HOST2 lvcreate -L$SIZE -n lxc_$VSNAME $VG2
+    ssh $HOST2 lvcreate -L$SIZE -n lxc_${VSNAME//-/_} $VG2
     cat <<-EOF > /etc/drbd.d/lxc_$VSNAME.res
 resource lxc_$VSNAME {  
         protocol        C;
@@ -227,7 +227,7 @@ EOF
     mkdir -p /etc/RCS
     vo -o /etc/fstab
     cat <<-EOF >> /etc/fstab
-	/dev/$VG1/lxc_$VSNAME /var/lib/lxc/$VSNAME ext4 barrier=0,noatime 0 2
+	/dev/$VG1/lxc_${VSNAME//-/_} /var/lib/lxc/$VSNAME ext4 barrier=0,noatime 0 2
 EOF
     vo -i /etc/fstab
     mkdir /var/lib/lxc/$VSNAME
