@@ -185,8 +185,8 @@ EOF
 EOF
     cat <<-EOF >> /etc/subgid
 	root:$CONTAINER_SUBUID:65536
-  fi
 EOF
+  fi
   vo -i /etc/subuid
   if [ "x$SINGLE" == "x0" ]; then
     ssh $HOST2 lvcreate -L$SIZE -n lxc_${VSNAME//-/_} $VG2
