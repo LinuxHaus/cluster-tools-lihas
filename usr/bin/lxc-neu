@@ -293,12 +293,16 @@ EOF
 	lxc.network.ipv4 = $CONTAINER_IP/$CONTAINER_NETMASK
 	lxc.network.ipv4.gateway = $CONTAINER_GATEWAY
 	lxc.network.veth.pair = $VSNAME
+	lxc.start.auto = 1
 	
+EOF
+	
+  if [ x$UNPRIV == x1 ]; then
+  cat << EOF > /var/lib/lxc/$VSNAME/config
 	lxc.id_map = u 0 $CONTAINER_SUBUID 65536
 	lxc.id_map = g 0 $CONTAINER_SUBUID 65536
-	
-	lxc.start.auto = 1
 EOF
+  fi
   vo -i /var/lib/lxc/$VSNAME/config
 
   # permissions auf das subuid-Setup anpassen:

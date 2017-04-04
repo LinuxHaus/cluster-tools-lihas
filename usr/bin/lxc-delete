@@ -1,0 +1,91 @@
+#!/bin/bash
+
+[ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
+CRMONLY=0
+LXCNAME=""
+SIZE=""
+DRBD=""
+SINGLE=0
+
+print_help() {
+	echo "Usage: $0 --name=LXCNAME [--single]" >&2
+	echo "--name: Name of LXC" >&2
+	echo "--single: Non-Cluster" >&2
+	echo "DELETES a LXC AND ALL DATA" >&2
+	echo "THE DATA IS GONE AFTERWARDS" >&2
+	echo "Things that are gone include: HA-configuration for lxc and drbd, drbd-configuration, lxc-configuration, logical volumes" >&2
+}
+error() {
+  print_help
+  echo "$*"
+  exit 1
+}
+TEMP=`getopt -o h --long help,single,name: -- "$@"`
+if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
+eval set -- "$TEMP"
+while true ; do
+	case "$1" in
+		--name) LXCNAME=$2; shift 2;;
+		--single) SINGLE=1; shift 1;;
+		--help|-h) print_help; exit 0;;
+		--) shift ; break ;;
+		*) echo "Unknown parameter $1i, try -h" ; exit 1 ;;
+	esac
+done
+
+if [ "x$LXCNAME" == "x" ]; then
+	echo "Missing --LXCname" >&2
+	print_help
+	exit 1
+fi
+
+# IF Abfragen nach dem installierten Software, die benoetigt wird
+if [ ! -x /usr/bin/which ] ; then echo "which ist nicht installiert!!!"; exit 1; fi
+if ! which awk >/dev/null ; then echo "Please Install awk"; exit 1; fi
+if ! which sort >/dev/null ; then echo "Please Install sort"; exit 1; fi
+if ! which tail >/dev/null ; then echo "Please Install tail"; exit 1; fi
+if ! which printf >/dev/null ; then echo "Please Install printf"; exit 1; fi
+if ! which lvremove >/dev/null ; then echo "Please Install lvm2"; exit 1; fi
+if ! which mktemp >/dev/null ; then echo "Please Install mktemp"; exit 1; fi
+
+DUMMY=10
+
+if [ "x$VG1" == x ] || ! vgs | sed '1d' | grep -qw "$VG1"; then
+  VG1=$(vgs | sed '1d' | awk '{print $1}')
+fi
+
+if [ x"$SINGLE" != x1 ]; then
+	error "Clusters not supported, yet"
+	exit 1
+	echo "Stop HA Services res_VirtualDomain_LXC_$LXCNAME and ms_$LXCNAME"
+	crm --wait resource stop res_VirtualDomain_LXC_$LXCNAME
+	crm --wait resource demote ms_$LXCNAME
+	crm --wait resource stop ms_$LXCNAME
+	crm --wait resource stop p_$LXCNAME
+	crm --wait resource stop p_$LXCNAME:0
+	crm --wait resource stop p_$LXCNAME:1
+	echo "Delete HA Services res_VirtualDomain_LXC_$LXCNAME and ms_$LXCNAME"
+	crm --wait configure delete res_VirtualDomain_LXC_$LXCNAME
+	crm --wait configure delete p_$LXCNAME
+	crm --wait configure delete ms_$LXCNAME
+	while crm resource status ms_argl ; do
+		sleep 2
+	done
+	echo "Shutting down DRBD LXC_$LXCNAME"
+	drbdadm down LXC_$LXCNAME
+	ssh $HOST2 drbdadm down LXC_$LXCNAME
+	echo "Removing DRBD configuration"
+	rm /etc/drbd.d/LXC_$LXCNAME.res
+	ssh $HOST2 rm /etc/drbd.d/LXC_$LXCNAME.res
+fi
+if [ x"$SINGLE" != x0 ]; then
+	lxc-stop -n $LXCNAME
+	umount /var/lib/lxc/$LXCNAME
+fi
+echo "Deleting LVs"
+lvremove --force /dev/$VG1/lxc_$LXCNAME
+if [ x"$SINGLE" != x1 ]; then
+	ssh $HOST2 lvremove --force /dev/$VG2/lxc_$LXCNAME
+fi
+
+# vim: ts=2 sw=2 sts=2 sr noet
