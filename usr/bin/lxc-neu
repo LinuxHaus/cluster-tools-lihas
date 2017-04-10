@@ -181,13 +181,16 @@ EOF
     touch /etc/subuid
     vo -o /etc/subuid
     cat <<-EOF >> /etc/subuid
-	root:$CONTAINER_SUBUID:65536
+	root:$CONTAINER_SUBUID:99999
 EOF
+    vo -i /etc/subuid
+    touch /etc/subgid
+    vo -o /etc/subgid
     cat <<-EOF >> /etc/subgid
-	root:$CONTAINER_SUBUID:65536
+	root:$CONTAINER_SUBUID:99999
 EOF
+    vo -i /etc/subgid
   fi
-  vo -i /etc/subuid
   if [ "x$SINGLE" == "x0" ]; then
     ssh $HOST2 lvcreate -L$SIZE -n lxc_${VSNAME//-/_} $VG2
     cat <<-EOF > /etc/drbd.d/lxc_$VSNAME.res
@@ -298,9 +301,9 @@ EOF
 EOF
 	
   if [ x$UNPRIV == x1 ]; then
-  cat << EOF > /var/lib/lxc/$VSNAME/config
-	lxc.id_map = u 0 $CONTAINER_SUBUID 65536
-	lxc.id_map = g 0 $CONTAINER_SUBUID 65536
+  cat << EOF >> /var/lib/lxc/$VSNAME/config
+	lxc.id_map = u 0 $CONTAINER_SUBUID 99999
+	lxc.id_map = g 0 $CONTAINER_SUBUID 99999
 EOF
   fi
   vo -i /var/lib/lxc/$VSNAME/config

@@ -80,6 +80,20 @@ if [ x"$SINGLE" != x1 ]; then
 fi
 if [ x"$SINGLE" != x0 ]; then
 	lxc-stop -n $LXCNAME
+	if [ -e /var/lib/lxc/$LXCNAME/config ]; then
+		key=$(sed '/^#/d; /lxc.id_map.*=.*u 0 /{s/.*u 0 //; s/ .*//; p}; d' </var/lib/lxc/$LXCNAME/config)
+		vo -o /etc/subuid
+		sed -i '/^root:'$key':/d;' /etc/subuid
+		vo -o /etc/subuid
+		key=$(sed '/^#/d; /lxc.id_map.*=.*g 0 /{s/.*g 0 //; s/ .*//; p}; d' </var/lib/lxc/$LXCNAME/config)
+		vo -o /etc/subgid
+		sed -i '/^root:'$key':/d;' /etc/subgid
+		vo -o /etc/subgid
+	fi
+	vo -o /etc/fstabA
+	key=$(echo /var/lib/lxc/$LXCNAME | sed '/\//\\\//g')
+	sed -i '/'$key'/d' /etc/fstab
+	vo -i /etc/fstab
 	umount /var/lib/lxc/$LXCNAME
 fi
 echo "Deleting LVs"
