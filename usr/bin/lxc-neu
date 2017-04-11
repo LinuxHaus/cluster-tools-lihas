@@ -2,7 +2,7 @@
 
 
 print_help() {
-  echo "Usage: $0 --name=VSNAME --ip=IP --size=SIZE --context=CTX --drbd=DRBDNUM [--print-crm-only]" >&2
+  echo "Usage: $0 --name=VSNAME --ip=IP --size=SIZE --context=CTX --drbd=DRBDNUM --vampire=VS_HOST:/VS_PATH [--print-crm-only]" >&2
   echo "--name:    Name of LXC Container" >&2
   echo "--dist:    distribution" >&2
   echo "--release: distribution release" >&2
@@ -17,6 +17,7 @@ print_help() {
   echo "--interface:    host network interface" >&2
   echo "--print-crm-only:    just print the resulting crm resources" >&2
   echo "--force-dataloss:    use lv despite it already exists" >&2
+  echo "--vampire: rip filesystem from VS_HOST:/VS_PATH via rsync" >&2
 }
 error() {
   print_help
@@ -31,10 +32,11 @@ CONTAINER_PACKAGES_ARG="sysvinit-core wget"
 CONTAINER_SUBUID=$(awk -F':' 'BEGIN {base=100000; offset=0} $2 > base {base=$2; offset=$3}; END {print base+offset+1}' /etc/subuid)
 CONTAINER_SUBGID=$(awk -F':' 'BEGIN {base=100000; offset=0} $2 > base {base=$2; offset=$3}; END {print base+offset+1}' /etc/subgid)
 CONTAINER_MACADDR_PFX=22
-CONTAINER_NETMASK=24
+IF_LAN_NM=24
 DIST=debian
-RELEASE=jessie
+RELEASE=stretch
 IF_LAN=br0
+VAMPIRE=""
 MAC_RAND=$(
   perl -le 'sysread(STDIN,$a,5); (@a)=unpack("CCCCC",$a); printf "%02x:%02x:%02x:%02x:%02x\n",@a' < /dev/random
 )
@@ -43,7 +45,7 @@ if [ $CONTAINER_SUBUID -lt $CONTAINER_SUBGID ]; then
   CONTAINER_SUBUID=$CONTAINER_SUBGID
 fi
 [ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
-TEMP=`getopt -o h --long help,single,unpriv,name:,size:,drbd:,ip:,netmask:,gateway:,interface:,dist:,release:,force-dataloss,print-crm-only -- "$@"`
+TEMP=`getopt -o h --long help,single,unpriv,name:,size:,drbd:,ip:,netmask:,gateway:,interface:,dist:,release:,force-dataloss,print-crm-only,vampire: -- "$@"`
 if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
 while true ; do
@@ -57,11 +59,12 @@ while true ; do
     --dist)    DIST=$2; shift 2;;
     --release) RELEASE=$2; shift 2;;
     --ip)      CONTAINER_IP=$2; shift 2;;
-    --netmask) CONTAINER_NETMASK=$2; shift 2;;
+    --netmask) IF_LAN_NM=$2; shift 2;;
     --gateway) CONTAINER_GATEWAY=$2; shift 2;;
     --interface) IF_LAN=$2; shift 2;;
     --print-crm-only) CRMONLY=1; shift 1;;
     --force-dataloss) FORCE_DATALOSS=1; shift 1;;
+    --vampire) VAMPIRE=$2; shift 2;;
     --help|-h) print_help; shift 1; exit 1;;
     --) shift ; break ;;
     *) echo "Unknown parameter $1, try -h" ; exit 1 ;;
@@ -160,15 +163,15 @@ if [ $CRMONLY -eq 0 ]; then
 	HOST2:     $HOST2
 	DRBDPORT:  $DRBDPORT
 	Single:    $SINGLE
-	LVM1-Name: $HOST1:/dev/$VG1/lxc_$VSNAME
-	LVM2-Name: $HOST2:/dev/$VG2/lxc_$VSNAME
+	LVM1-Name: $HOST1:/dev/$VG1/lxc_${VSNAME//-/_}
+	LVM2-Name: $HOST2:/dev/$VG2/lxc_${VSNAME//-/_}
 	LVM-Size:  $SIZE
 	Packages:  $CONTAINER_PACKAGES_ARG
 	UID-Base:  $CONTAINER_SUBUID
 	GID-Base:  $CONTAINER_SUBGID
 	MAC:       $CONTAINER_MACADDR
 	HOST-net:  $IF_LAN
-	Netz:      $CONTAINER_IP/$CONTAINER_NETMASK
+	Netz:      $CONTAINER_IP/$IF_LAN_NM
 	Gateway    $CONTAINER_GATEWAY
 	***********************
 	* CLUSTER is untested *
@@ -176,20 +179,23 @@ if [ $CRMONLY -eq 0 ]; then
 	continue: return, ctrl-c to abort
 EOF
   read a
-  lvcreate -L$SIZE -n lxc_$VSNAME $VG1
+  lvcreate -L$SIZE -n lxc_${VSNAME//-/_} $VG1
   if [ x$UNPRIV == x1 ]; then
     touch /etc/subuid
     vo -o /etc/subuid
     cat <<-EOF >> /etc/subuid
-	root:$CONTAINER_SUBUID:65536
+	root:$CONTAINER_SUBUID:99999
 EOF
+    vo -i /etc/subuid
+    touch /etc/subgid
+    vo -o /etc/subgid
     cat <<-EOF >> /etc/subgid
-	root:$CONTAINER_SUBUID:65536
-  fi
+	root:$CONTAINER_SUBUID:99999
 EOF
-  vo -i /etc/subuid
+    vo -i /etc/subgid
+  fi
   if [ "x$SINGLE" == "x0" ]; then
-    ssh $HOST2 lvcreate -L$SIZE -n lxc_$VSNAME $VG2
+    ssh $HOST2 lvcreate -L$SIZE -n lxc_${VSNAME//-/_} $VG2
     cat <<-EOF > /etc/drbd.d/lxc_$VSNAME.res
 resource lxc_$VSNAME {  
         protocol        C;
@@ -211,7 +217,7 @@ resource lxc_$VSNAME {
 }
 EOF
   
-    rsync -rlHpogDtSvx /etc/drbd.d $HOST2:/etc/
+    rsync -rlHpogDtSvx --numeric-ids /etc/drbd.d $HOST2:/etc/
     yes yes | drbdadm create-md lxc_$VSNAME
     drbdadm up lxc_$VSNAME
     ssh $HOST2 "(yes yes | drbdadm create-md lxc_$VSNAME && drbdadm up lxc_$VSNAME)"
@@ -227,14 +233,21 @@ EOF
     mkdir -p /etc/RCS
     vo -o /etc/fstab
     cat <<-EOF >> /etc/fstab
-	/dev/$VG1/lxc_$VSNAME /var/lib/lxc/$VSNAME ext4 barrier=0,noatime 0 2
+	/dev/$VG1/lxc_${VSNAME//-/_} /var/lib/lxc/$VSNAME ext4 barrier=0,noatime 0 2
 EOF
     vo -i /etc/fstab
     mkdir /var/lib/lxc/$VSNAME
     mount /var/lib/lxc/$VSNAME
   fi
-  # lxc-create -n $VSNAME -t debian-wheezy
-  lxc-create -n $VSNAME -t $DIST -- -r $RELEASE $CONTAINER_PACKAGES_ARG
+  if [ x"$VAMPIRE" == x ]; then
+    lxc-create -n $VSNAME -t $DIST -- -r $RELEASE $CONTAINER_PACKAGES_ARG
+  else
+    lxc-create -n $VSNAME -t none
+    rsync -rlHpogDtSvXA --numeric-ids $VAMPIRE/* /var/lib/lxc/$VSNAME/rootfs/
+    if [ ! -d /var/lib/lxc/$VSNAME/rootfs/run ]; then
+      mkdir /var/lib/lxc/$VSNAME/rootfs/run
+    fi
+  fi
   if [ ! -f /var/lib/lxc/default.conf ] ; then
     touch /var/lib/lxc/default.conf
     vo -o 
@@ -290,15 +303,19 @@ EOF
 	
 	lxc.network.link = $IF_LAN
 	lxc.network.hwaddr = $CONTAINER_MACADDR
-	lxc.network.ipv4 = $CONTAINER_IP/$CONTAINER_NETMASK
+	lxc.network.ipv4 = $CONTAINER_IP/$IF_LAN_NM
 	lxc.network.ipv4.gateway = $CONTAINER_GATEWAY
 	lxc.network.veth.pair = $VSNAME
-	
-	lxc.id_map = u 0 $CONTAINER_SUBUID 65536
-	lxc.id_map = g 0 $CONTAINER_SUBUID 65536
-	
 	lxc.start.auto = 1
+	
 EOF
+	
+  if [ x$UNPRIV == x1 ]; then
+  cat << EOF >> /var/lib/lxc/$VSNAME/config
+	lxc.id_map = u 0 $CONTAINER_SUBUID 99999
+	lxc.id_map = g 0 $CONTAINER_SUBUID 99999
+EOF
+  fi
   vo -i /var/lib/lxc/$VSNAME/config
 
   # permissions auf das subuid-Setup anpassen:
