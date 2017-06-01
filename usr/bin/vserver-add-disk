@@ -93,7 +93,7 @@ umount /mnt
 
 cat <<EOF | crm configure
 primitive p_$RESNAME ocf:linbit:drbd \
-        params drbd_resource="$RESNAME" \
+        params drbd_resource="$RESNAME" stop_outdates_secondary=true unfence_extra_args=false \
         op start interval="0" timeout="240" \
         op promote interval="0" timeout="90" \
         op demote interval="0" timeout="90" \

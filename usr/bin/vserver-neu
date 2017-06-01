@@ -176,7 +176,7 @@ fi
 
 cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 primitive res_drbd_drbd$DRBD_$VSNAME ocf:linbit:drbd \
-        params drbd_resource="vs_$VSNAME" \
+        params drbd_resource="vs_$VSNAME" stop_outdates_secondary=true unfence_extra_args=false \
         operations \$id="res_drbd_drbd$VSNAME-operations" \
         op start interval="0" timeout="240" \
         op promote interval="0" timeout="90" \

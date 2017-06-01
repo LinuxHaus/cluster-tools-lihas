@@ -149,7 +149,7 @@ EOF
 fi
 cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 primitive p_$KVMNAME ocf:linbit:drbd \
-        params drbd_resource="kvm_$KVMNAME" \
+        params drbd_resource="kvm_$KVMNAME" stop_outdates_secondary=true unfence_extra_args=false \
         op start interval="0" timeout="240" \
         op promote interval="0" timeout="90" \
         op demote interval="0" timeout="90" \
