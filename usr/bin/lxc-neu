@@ -45,7 +45,7 @@ if [ $CONTAINER_SUBUID -lt $CONTAINER_SUBGID ]; then
   CONTAINER_SUBUID=$CONTAINER_SUBGID
 fi
 [ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
-TEMP=`getopt -o h --long help,single,unpriv,name:,size:,drbd:,ip:,netmask:,gateway:,interface:,dist:,release:,force-dataloss,print-crm-only,vampire: -- "$@"`
+TEMP=`getopt -o h --long help,single,unpriv,name:,size:,drbd:,ip:,netmask:,gateway:,interface:,dist:,release:,force-dataloss,print-crm-only,mac,vampire: -- "$@"`
 if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
 while true ; do
