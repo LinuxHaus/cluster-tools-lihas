@@ -330,16 +330,16 @@ LXCHA=ocf:lihas:lxc
 #fi
 if [ "x$SINGLE" == "x0" ]; then
   cat <<-EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
-	primitive res_drbd_drbd$DRBD_$VSNAME ocf:linbit:drbd \
+	primitive res_drbd_$DRBD_$VSNAME ocf:linbit:drbd \
 	        params drbd_resource="lxc_$VSNAME" stop_outdates_secondary=true unfence_extra_args=false \
-	        operations \$id="res_drbd_drbd$VSNAME-operations" \
+	        operations \$id="res_drbd_$VSNAME-operations" \
 	        op start interval="0" timeout="240" \
 	        op promote interval="0" timeout="90" \
 	        op demote interval="0" timeout="90" \
 	        op stop interval="0" timeout="100" \
 	        op monitor interval="10" timeout="20" start-delay="0" \
 	        op notify interval="0" timeout="90"
-	ms ms_$VSNAME res_drbd_drbd$DRBD_$VSNAME \
+	ms ms_$VSNAME res_drbd_$DRBD_$VSNAME \
 	        meta notify="true" migration-threshold="10"
 	primitive res_fs_$VSNAME ocf:heartbeat:Filesystem \
 	        params device="/dev/drbd$DRBD" directory="$LXC_BASE/$VSNAME" fstype="ext4" options="noatime,stripe=64,barrier=0" \
@@ -354,7 +354,7 @@ if [ "x$SINGLE" == "x0" ]; then
 	        op start interval="0" timeout="600" \
 	        op stop interval="0" timeout="180" \
 	        op monitor interval="10" timeout="20" start-delay="5" \
-	        meta target-role="Started"
+	        
 	group grp_$VSNAME res_fs_$VSNAME res_lxc_$VSNAME
 	colocation col_grp_$VSNAME-ms_$VSNAME inf: grp_$VSNAME ms_$VSNAME:Master
 	order ord_ms_$VSNAME-grp_$VSNAME inf: ms_$VSNAME:promote grp_$VSNAME:start

@@ -3,11 +3,12 @@
 [ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
 
 print_help() {
-        echo "Usage: $0 --name=LXCNAME --path=PATH --size=SIZE --drbd=DRBDNUM" >&2
+        echo "Usage: $0 --name=LXCNAME --path=PATH --size=SIZE --drbd=DRBDNUM [--print-crm-only]" >&2
         echo "--name: Name of LXC-container" >&2
         echo "--path:    mountpoint within lxc-container" >&2
         echo "--size:    virtual disk size, e.g. 10G" >&2
         echo "--drbd:    drbd device number to use" >&2
+	echo "--print-crm-only:    just print the resulting crm resources" >&2
 }
 
 error() {
@@ -15,7 +16,8 @@ error() {
   echo "$*"
   exit 1
 }
-TEMP=`getopt -o h --long help,name:,size:,drbd:,path: -- "$@"`
+CRMONLY=0
+TEMP=`getopt -o h --long help,name:,size:,drbd:,path:,print-crm-only -- "$@"`
 if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
 while true ; do
@@ -24,6 +26,7 @@ while true ; do
                 --size) SIZE=$2; shift 2;;
                 --path) MNTPOINT=$2; shift 2;;
                 --drbd) DRBD=$2; shift 2;;
+		--print-crm-only) CRMONLY=1; shift 1;;
                 --help|-h) print_help; exit 1;;
                 --) shift ; break ;;
                 *) echo "Unknown parameter $1i, try -h" ; exit 1 ;;
@@ -77,58 +80,60 @@ DUMMY=10
 
 RESNAME=lxc_${VSNAME}$(sed 's#/#_#g' <<< $MNTPOINT)
 
-if [ ! -d $LXC_BASE/$VSNAME/rootfs$MNTPOINT ]; then
-  echo "$LXC_BASE/$VSNAME/rootfs$MNTPOINT should exist" >&2
-  exit 1
-fi
-
-lvcreate -L$SIZE -n $RESNAME $VG1
-ssh $HOST2 lvcreate -L$SIZE -n $RESNAME $VG2
-
-cat <<-EOF > /etc/drbd.d/$RESNAME.res
-resource $RESNAME {  
-        protocol        C;
-        syncer {
-                rate    2000M;
-        }
-        on $HOST1 {
-                device          /dev/drbd$DRBD;
-                disk            /dev/$VG1/$RESNAME;
-                flexible-meta-disk      internal;
-                address         $IP_DRBD1:7$DRBDPORT;
-        }
-        on $HOST2 {
-                device          /dev/drbd$DRBD;
-                disk            /dev/$VG2/$RESNAME;
-                flexible-meta-disk      internal;
-                address         $IP_DRBD2:7$DRBDPORT;
-        }
-}
+if [ $CRMONLY -eq 0 ]; then
+  if [ ! -d $LXC_BASE/$VSNAME/rootfs$MNTPOINT ]; then
+    echo "$LXC_BASE/$VSNAME/rootfs$MNTPOINT should exist" >&2
+    exit 1
+  fi
+  
+  lvcreate -L$SIZE -n $RESNAME $VG1
+  ssh $HOST2 lvcreate -L$SIZE -n $RESNAME $VG2
+  
+  cat <<-EOF > /etc/drbd.d/$RESNAME.res
+  resource $RESNAME {  
+          protocol        C;
+          syncer {
+                  rate    2000M;
+          }
+          on $HOST1 {
+                  device          /dev/drbd$DRBD;
+                  disk            /dev/$VG1/$RESNAME;
+                  flexible-meta-disk      internal;
+                  address         $IP_DRBD1:7$DRBDPORT;
+          }
+          on $HOST2 {
+                  device          /dev/drbd$DRBD;
+                  disk            /dev/$VG2/$RESNAME;
+                  flexible-meta-disk      internal;
+                  address         $IP_DRBD2:7$DRBDPORT;
+          }
+  }
 EOF
-
-rsync -rlHpogDtSvx /etc/drbd.d $HOST2:/etc/
-yes yes | drbdadm create-md $RESNAME
-drbdadm up $RESNAME
-ssh $HOST2 "(yes yes | drbdadm create-md $RESNAME && drbdadm up $RESNAME)"
-
-drbdprimaryforce $DRBDVERSION $RESNAME
-
-mkfs.ext4 -L $RESNAME /dev/drbd$DRBD
-mount /dev/drbd$DRBD /mnt
-# mv $LXC_BASE/$VSNAME/rootfs/$MNTPOINT/. /mnt/
-crm resource stop res_lxc_$VSNAME
-while crm resource status res_lxc_$VSNAME | grep -q 'is running'; do
-  sleep 1
-done
-
-rsync  -rlHpogDtSxAX --numeric-ids $LXC_BASE/$VSNAME/rootfs/$MNTPOINT/ /mnt/
-if [ $? -eq 0 ]; then
-	rm -rf $LXC_BASE/$VSNAME/rootfs/$MNTPOINT/*
+  
+  rsync -rlHpogDtSvx /etc/drbd.d $HOST2:/etc/
+  yes yes | drbdadm create-md $RESNAME
+  drbdadm up $RESNAME
+  ssh $HOST2 "(yes yes | drbdadm create-md $RESNAME && drbdadm up $RESNAME)"
+  
+  drbdprimaryforce $DRBDVERSION $RESNAME
+  
+  mkfs.ext4 -L $RESNAME /dev/drbd$DRBD
+  mount /dev/drbd$DRBD /mnt
+  # mv $LXC_BASE/$VSNAME/rootfs/$MNTPOINT/. /mnt/
+  crm resource stop res_lxc_$VSNAME
+  while crm resource status res_lxc_$VSNAME | grep -q 'is running'; do
+    sleep 1
+  done
+  
+  rsync  -rlHpogDtSxAX --numeric-ids $LXC_BASE/$VSNAME/rootfs/$MNTPOINT/ /mnt/
+  if [ $? -eq 0 ]; then
+  	rm -rf $LXC_BASE/$VSNAME/rootfs/$MNTPOINT/*
+  fi
+  
+  umount /mnt 
 fi
 
-umount /mnt 
-
-cat <<EOF | crm configure
+cat <<-EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 primitive p_$RESNAME ocf:linbit:drbd \
         params drbd_resource="$RESNAME" stop_outdates_secondary=true unfence_extra_args=false \
         op start interval="0" timeout="240" \
@@ -143,7 +148,7 @@ ms ms_$RESNAME p_$RESNAME \
 commit
 EOF
 
-cat <<EOF | crm configure
+cat <<-EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 primitive res_fs_$RESNAME ocf:heartbeat:Filesystem \
         params device="/dev/drbd$DRBD" directory="$LXC_BASE/$VSNAME/rootfs$MNTPOINT" fstype="ext4" options="noatime,stripe=64,barrier=0" \
         operations \$id="res_fs_$RESNAME-operations" \
@@ -155,13 +160,14 @@ primitive res_fs_$RESNAME ocf:heartbeat:Filesystem \
 commit
 EOF
 
-cat <<EOF | crm configure
+cat <<-EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 colocation col_ms_$RESNAME-ms_$VSNAME inf: ms_$RESNAME:Master ms_$VSNAME:Master
 order ord_ms_$RESNAME-grp_$VSNAME inf: ms_$RESNAME:promote grp_$VSNAME:start
 commit
 EOF
 
-EDITOR="sed -i '/^group grp_'$VSNAME' /,/[^\\]/{s/ res_lxc/ res_fs_'$RESNAME' res_lxc/}'" crm configure edit
-crm resource manage res_fs_$RESNAME
-crm resource start res_lxc_$VSNAME
-
+if [ $CRMONLY -eq 0 ]; then
+  EDITOR="sed -i '/^group grp_'$VSNAME' /,/[^\\]/{s/ res_lxc/ res_fs_'$RESNAME' res_lxc/}'" crm configure edit
+  crm resource manage res_fs_$RESNAME
+  crm resource start res_lxc_$VSNAME
+fi
