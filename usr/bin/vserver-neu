@@ -151,19 +151,19 @@ EOF
     vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m fai -- -f fai 
   else
 		vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m debootstrap -- -d $DEBIANDIST  -- $ARCHITECTURE --include=vim,etckeeper,less,nullmailer,bash-completion,bash-builtins,zsh,strace,lsof,debconf-utils,heirloom-mailx,bind9-host,busybox,tcpdump --exclude=dmidecode,isc-dhcp-client,isc-dhcp-common,kmod,nano,ifupdown,iptables --components=main,contrib,non-free
-		cat $VSERVER_TEMPLATE/etc/apt/sources.list > $VSERVER_BASE/$VSNAME/etc/apt/sources.list
+		cat $VSERVER_TEMPLATE/etc/apt/sources.list > /etc/vservers/"$VSNAME"/etc/apt/sources.list
   fi
 	sed -i '/tmpfs/d' /etc/vservers/$VSNAME/fstab
-	sed -i -e '/#HWCLOCKACCESS=yes$/aHWCLOCKACCESS=no' /vservers/"$VSNAME"/vdir/etc/default/hwclock
-	ln -sf /proc/mounts /vservers/"$VSNAME"/vdir/etc/mtab
-	ln -sf bash /vservers/"$VSNAME"/vdir/bin/sh
-	sed -i -e 's/\(^[^#].*getty.*$\)/#\1/' /vservers/"$VSNAME"/vdir/etc/inittab
-	sed -i -e '/imklog/s/^/#/' /vservers/"$VSNAME"/vdir/etc/rsyslog.conf
-	echo "Europe/Berlin" > /vservers/"$VSNAME"/vdir/etc/timezone
-	echo . /etc/bash_completion >> /vservers/"$VSNAME"/vdir/root/.bashrc
-	echo export HISTTIMEFORMAT=\"%Y-%m-%d -- %H:%M:%S \" >> /vservers/"$VSNAME"/root/.bashrc
-	echo export HISTSIZE=50000 >> /vservers/"$VSNAME"/root/.bashrc
-	rm /vservers/"$VSNAME"/vdir/etc/rc6.d/*{???hwclock.sh,???umountnfs.sh,???umountfs,???umountroot}
+	sed -i -e '/#HWCLOCKACCESS=yes$/aHWCLOCKACCESS=no' /etc/vservers/"$VSNAME"/vdir/etc/default/hwclock
+	ln -sf /proc/mounts /etc/vservers/"$VSNAME"/vdir/etc/mtab
+	ln -sf bash /etc/vservers/"$VSNAME"/vdir/bin/sh
+	sed -i -e 's/\(^[^#].*getty.*$\)/#\1/' /etc/vservers/"$VSNAME"/vdir/etc/inittab
+	sed -i -e '/imklog/s/^/#/' /etc/vservers/"$VSNAME"/vdir/etc/rsyslog.conf
+	echo "Europe/Berlin" > /etc/vservers/"$VSNAME"/vdir/etc/timezone
+	echo . /etc/bash_completion >> /etc/vservers/"$VSNAME"/vdir/root/.bashrc
+	echo export HISTTIMEFORMAT=\"%Y-%m-%d -- %H:%M:%S \" >> /etc/vservers/"$VSNAME"/vdir/root/.bashrc
+	echo export HISTSIZE=50000 >> /etc/vservers/"$VSNAME"/vdir/root/.bashrc
+	rm /etc/vservers/"$VSNAME"/vdir/etc/rc6.d/*{???hwclock.sh,???umountnfs.sh,???umountfs,???umountroot}
 
 	touch /etc/vservers/$VSNAME/interfaces/0/nodev
 	mv $VSERVER_BASE/$VSNAME/* /mnt/
