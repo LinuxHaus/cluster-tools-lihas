@@ -26,15 +26,27 @@
 # - 0.1 the journey begins
 # - 0.2 added support to restore s-bits after chown()
 # - 0.3 fixed multiple increments caused by hardlinks
+# - 0.4 uses lchown(2) to also change ids of symbolic links
+#       debian: apt-get install liblchown-perl 
+# - 0.5 use lstat() to correctly determine file mode 
+#       fixed error causing files to keep uid 0
 #
 
 use strict;
 use File::Find;
 use English;
+eval {
+	require Lchown;
+};
+if ( $@ ) { 
+	print "Please install the 'Lchown' perl module:\n";
+	print "	 apt-get install liblchown-perl \n";
+	exit 1;
+}
 
 sub usage () {
 print << 'EOF';
-	usage: $0 [-v ] [ -U { username | uid | '*' } -u uidincrement ] [ -G { groupname | gid | '*' } -g gidincrement ] -d directory
+usage: $0 [-v ] [ -U { username | uid | '*' } -u uidincrement ] [ -G { groupname | gid | '*' } -g gidincrement ] -d directory
 	-U user name of files to be modified (may be "*" for any)
 	-G group name of files to be modified (may be "*" for any)
 	-u user id increment 
@@ -42,7 +54,7 @@ print << 'EOF';
 	-d directory to change owner/group in (recursively)
 	-v verbose
 
-	$0 recursively changes owner and/or group of files by adding an increment
+	$0 recursively changes owner and/or group of filesystem objects (incl. symlinks!) by adding an increment
 
 example:
 	$0 -U "*" -G "*" -u +200000 -g +200000 -d /var/lib/lxc/mycontainer/rootfs
@@ -99,17 +111,19 @@ my $inodes = {};
 
 # the find() callback function
 sub wanted {
-	# skip symlinks
-	-l and return;
+	#off# # skip symlinks
+	#off# -l and return;
 
-	my ($ino,$nlink,$fuid,$fgid) = (stat)[1,3,4,5];
+	my ($ino,$mode,$nlink,$fuid,$fgid) = (lstat)[1,2,3,4,5];
 	my $flag = 0;
 	my $nuid = $fuid;
 	my $ngid = $fgid;
 
 	$verbose and print "<: $File::Find::name - $fuid,$fgid\n";
 
-	if ( $ino > 1 ) {
+	# is multiple times linked and not a directory:
+	# track inodes
+	if ( $nlink > 1 and ! (( $mode & 0770000 ) == 040000 ) ) {
 		$verbose and print "L: $File::Find::name - $ino,$nlink\n";
 		$inodes->{$ino} ++;
 		if ( $inodes->{$ino} > 1 ) {
@@ -119,12 +133,14 @@ sub wanted {
 		}
 	}
 
+	# check for new uid
 	if ( $usr eq "*" or $uid == $fuid) {
 		if ( defined $uidinc ) {
 			$nuid = $fuid + $uidinc;
 			$flag ++;
 		}
 	}
+	# check for new gid
 	if ( $grp eq "*" or $gid == $fgid) {
 		if ( defined $gidinc ) {
 			$ngid = $fgid + $gidinc;
@@ -135,11 +151,11 @@ sub wanted {
 		my $fn = $File::Find::name;
 		$verbose and print ">: $fn - $nuid,$ngid\n";
 		# s-bits have to be restored after changing ids
-		my $mode = (stat $fn)[2];
+		my $mode = (lstat $fn)[2];
 		my $sbits = 006000 & $mode;
 
-		chown($nuid, $ngid, $fn) or
-			warn "Error: can't chown '$fn'".(($EUID!=0)?(" (you are not 'root')"):()).": $!";
+		Lchown::lchown($nuid, $ngid, $fn) or
+			warn "Error: can't lchown '$fn'".(($EUID!=0)?(" (you are not 'root')"):()).": $!";
 
 		# restore permissions
 		if ( $sbits ) {
