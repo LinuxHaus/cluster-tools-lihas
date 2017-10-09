@@ -350,6 +350,7 @@ EOF
   if [ x"$VAMPIRE" != x ] && [ $VAMPIRE_STAGE -eq 3 ] || [ x"$VAMPIRE" == x ]; then
     # permissions auf das subuid-Setup anpassen:
     if [ "x$UNPRIV" == x1 ]; then
+      CONTAINER_SUBUID=$(awk '/lxc.id_map = u/ {print $5}' /var/lib/lxc/$VSNAME/config)
       ownrecalc -U "*" -G "*" -u +$CONTAINER_SUBUID -g +$CONTAINER_SUBUID -d /var/lib/lxc/$VSNAME/rootfs
     fi
   fi
