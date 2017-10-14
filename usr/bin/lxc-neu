@@ -145,16 +145,16 @@ DUMMY=10
 if [ $CRMONLY -eq 0 ]; then
   if [ $FORCE_DATALOSS -ne 1 ]; then
     if [ "x$SINGLE" == "x0" ]; then
-      if [ -e /etc/drbd.d/lxc_$VSNAME.res ]; then
+      if [ -e /etc/drbd.d/lxc_${VSNAME//-/_}.res ]; then
         if [ x"$VAMPIRE" != x ] && [ $VAMPIRE_STAGE -eq 1 ] || [ x"$VAMPIRE" == x ]; then
-          echo "WARNING: /etc/drbd.d/lxc_$VSNAME.res already exists, use --force-data-loss to continue anyway" >&2
+          echo "WARNING: /etc/drbd.d/lxc_${VSNAME//-/_}.res already exists, use --force-data-loss to continue anyway" >&2
           exit 1
         fi
       fi
     fi
-    if [ $(lvs | awk '$2 == "'$VG1'" && $1 == "'lxc_$VSNAME'" {print}' | wc -l ) -ne 0 ]; then
+    if [ $(lvs | awk '$2 == "'$VG1'" && $1 == "'lxc_${VSNAME//-/_}'" {print}' | wc -l ) -ne 0 ]; then
       if [ x"$VAMPIRE" != x ] && [ $VAMPIRE_STAGE -eq 1 ] || [ x"$VAMPIRE" == x ]; then
-        echo "WARNING: /dev/$VG1/lxc_$VSNAME already exists, use --force-data-loss to continue anyway" >&2
+        echo "WARNING: /dev/$VG1/lxc_${VSNAME//-/_} already exists, use --force-data-loss to continue anyway" >&2
         exit 1
       fi
     elif [ x"$VAMPIRE" != x ] && [ $VAMPIRE_STAGE -gt 1 ]; then
@@ -162,9 +162,9 @@ if [ $CRMONLY -eq 0 ]; then
       exit 1
     fi
     if [ "x$SINGLE" == "x0" ]; then
-      if [ $(ssh $HOST2 lvs | awk '$2 == "'$VG2'" && $1 == "'lxc_$VSNAME'" {print}' | wc -l ) -ne 0 ]; then
+      if [ $(ssh $HOST2 lvs | awk '$2 == "'$VG2'" && $1 == "'lxc_${VSNAME//-/_}'" {print}' | wc -l ) -ne 0 ]; then
         if [ x"$VAMPIRE" != x ] && [ $VAMPIRE_STAGE -eq 1 ] || [ x"$VAMPIRE" == x ]; then
-          echo "WARNING: $HOST2:/dev/$VG2/lxc_$VSNAME already exists, use --force-data-loss to continue anyway" >&2
+          echo "WARNING: $HOST2:/dev/$VG2/lxc_${VSNAME//-/_} already exists, use --force-data-loss to continue anyway" >&2
           exit 1
         fi
       fi
@@ -218,21 +218,21 @@ EOF
     fi
     if [ "x$SINGLE" == "x0" ]; then
       ssh $HOST2 lvcreate -L$SIZE -n lxc_${VSNAME//-/_} $VG2
-      cat <<-EOF > /etc/drbd.d/lxc_$VSNAME.res
-resource lxc_$VSNAME {  
+      cat <<-EOF > /etc/drbd.d/lxc_${VSNAME//-/_}.res
+resource lxc_${VSNAME//-/_} {  
         protocol        C;
         syncer {
                 rate    2000M;
         }
         on $HOST1 {
                 device          /dev/drbd$DRBD;
-                disk            /dev/$VG1/lxc_$VSNAME;
+                disk            /dev/$VG1/lxc_${VSNAME//-/_};
                 flexible-meta-disk      internal;
                 address         $IP_DRBD1:77$DRBDPORT;
         }
         on $HOST2 {
                 device          /dev/drbd$DRBD;
-                disk            /dev/$VG2/lxc_$VSNAME;
+                disk            /dev/$VG2/lxc_${VSNAME//-/_};
                 flexible-meta-disk      internal;
                 address         $IP_DRBD2:77$DRBDPORT;
         }
@@ -240,18 +240,18 @@ resource lxc_$VSNAME {
 EOF
   
       rsync -rlHpogDtSvx --numeric-ids /etc/drbd.d $HOST2:/etc/
-      yes yes | drbdadm create-md lxc_$VSNAME
-      drbdadm up lxc_$VSNAME
-      ssh $HOST2 "(yes yes | drbdadm create-md lxc_$VSNAME && drbdadm up lxc_$VSNAME)"
+      yes yes | drbdadm create-md lxc_${VSNAME//-/_}
+      drbdadm up lxc_${VSNAME//-/_}
+      ssh $HOST2 "(yes yes | drbdadm create-md lxc_${VSNAME//-/_} && drbdadm up lxc_${VSNAME//-/_})"
     
-      drbdprimaryforce $DRBDVERSION lxc_$VSNAME
+      drbdprimaryforce $DRBDVERSION lxc_${VSNAME//-/_}
     
-      mkfs.ext4 -L lxc_$VSNAME /dev/drbd$DRBD
+      mkfs.ext4 -L lxc_${VSNAME//-/_} /dev/drbd$DRBD
       mkdir /var/lib/lxc/$VSNAME
       mount /dev/drbd$DRBD /var/lib/lxc/$VSNAME
       ssh $HOST2 mkdir /var/lib/lxc/$VSNAME
     else
-      mkfs.ext4 -L lxc_$VSNAME /dev/$VG1/lxc_$VSNAME
+      mkfs.ext4 -L lxc_${VSNAME//-/_} /dev/$VG1/lxc_${VSNAME//-/_}
       mkdir -p /etc/RCS
       vo -o /etc/fstab
       cat <<-EOF >> /etc/fstab
@@ -364,8 +364,8 @@ if [ x"$VAMPIRE" != x ] && [ $VAMPIRE_STAGE -eq 1 ] || [ x"$VAMPIRE" == x ]; the
   if [ "x$SINGLE" == "x0" ]; then
     cat <<-EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 	primitive res_drbd_$DRBD_$VSNAME ocf:linbit:drbd \
-	        params drbd_resource="lxc_$VSNAME" stop_outdates_secondary=true unfence_extra_args=false \
-	        operations \$id="res_drbd_$VSNAME-operations" \
+	        params drbd_resource="lxc_${VSNAME//-/_}" stop_outdates_secondary=true unfence_extra_args=false \
+	        operations \$id="res_drbd_${VSNAME//-/_}-operations" \
 	        op start interval="0" timeout="240" \
 	        op promote interval="0" timeout="90" \
 	        op demote interval="0" timeout="90" \
