@@ -97,7 +97,7 @@ if [ x"$SINGLE" != x0 ]; then
 	umount /var/lib/lxc/$LXCNAME
 fi
 echo "Deleting LVs"
-lvremove --force /dev/$VG1/lxc_$LXCNAME
+lvremove --force /dev/$VG1/lxc_${LXCNAME/-/_}
 if [ x"$SINGLE" != x1 ]; then
 	ssh $HOST2 lvremove --force /dev/$VG2/lxc_$LXCNAME
 fi
