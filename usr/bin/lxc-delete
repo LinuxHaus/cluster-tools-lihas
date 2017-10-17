@@ -90,7 +90,7 @@ if [ x"$SINGLE" != x0 ]; then
 		sed -i '/^root:'$key':/d;' /etc/subgid
 		vo -o /etc/subgid
 	fi
-	vo -o /etc/fstabA
+	vo -o /etc/fstab
 	key=$(echo /var/lib/lxc/$LXCNAME | sed '/\//\\\//g')
 	sed -i '/'$key'/d' /etc/fstab
 	vo -i /etc/fstab
