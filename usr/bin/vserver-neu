@@ -150,7 +150,7 @@ EOF
     exit 1
     vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m fai -- -f fai 
   else
-		vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m debootstrap -- -d $DEBIANDIST  -- $ARCHITECTURE --include=vim,etckeeper,less,nullmailer,bash-completion,bash-builtins,zsh,strace,lsof,debconf-utils,heirloom-mailx,bind9-host,busybox,tcpdump --exclude=dmidecode,isc-dhcp-client,isc-dhcp-common,kmod,nano,ifupdown,iptables --components=main,contrib,non-free
+		vserver $VSNAME build --context $CONTEXT --interface $IF_LAN:$IP/$IF_LAN_NM --hostname $VSNAME -m debootstrap -- -d $DEBIANDIST  -- $ARCHITECTURE --include=vim,etckeeper,less,nullmailer,bash-completion,bash-builtins,strace,lsof,debconf-utils,heirloom-mailx,bind9-host,busybox,sysvinit-core --exclude=dmidecode,isc-dhcp-client,isc-dhcp-common,kmod,nano,ifupdown,iptables --components=main,contrib,non-free
 		cat $VSERVER_TEMPLATE/etc/apt/sources.list > /etc/vservers/"$VSNAME"/etc/apt/sources.list
   fi
 	sed -i '/tmpfs/d' /etc/vservers/$VSNAME/fstab
