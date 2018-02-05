@@ -1,17 +1,43 @@
 #!/bin/bash
 
+VSNAME=""
+SIZE=""
+DRBD=""
+CRMONLY=0
+DIR=""
+
 [ -e /etc/cluster-tools-lihas.conf ] && . /etc/cluster-tools-lihas.conf
 
-if [ ga$3 == ga ]; then
-  echo "usage: $0 VSNAME MNTPOINT SIZE [DRBDNUM]" >&2
-  echo "usage: $0 test01 /var/lib/mysql 10G" >&2
-  echo "usage: $0 test01 /var/lib/mysql 10G 3" >&2
-  exit 1
-fi
+print_help() {
+  echo "Usage: $0 --name=VSNAME --mnt=/path/in/vserver --size=SIZE --drbd=DRBDNUM [--print-crm-only]" >&2
+  echo "--name:    Name of VServer" >&2
+  echo "--dir:     Mountpoint" >&2
+  echo "--size:    virtual disk size, e.g. 10G" >&2
+  echo "--drbd:    drbd device number to use" >&2
+  echo "--print-crm-only:    just print the resulting crm resources" >&2
+}
 
-VSNAME=$1
-MNTPOINT=$2
-SIZE=$3
+error() {
+  print_help
+  echo "$*"
+  exit 1
+}
+
+TEMP=`getopt -o h --long help,name:,dir:,size:,drbd:,print-crm-only,arch: -- "$@"`
+if [ $? != 0 ] ; then print_help >&2 ; exit 1 ; fi
+eval set -- "$TEMP"
+while true ; do
+  case "$1" in
+    --name)    VSNAME=$2; shift 2;;
+    --dir)     MNTPOINT=$2; shift 2;;
+    --size)    SIZE=$2; shift 2;;
+    --drbd)    DRBD=$2; shift 2;;
+    --print-crm-only) CRMONLY=1; shift 1;;
+    --help|-h) print_help;;
+    --) shift ; break ;;
+    *) echo "Unknown parameter $1, try -h" ; exit 1 ;;
+  esac
+done
 
 # IF Abfragen nach dem installierten Software, die benoetigt wird
 if !([ -e /usr/bin/which ]) ; then echo "which ist nicht installiert!!!"; exit 1; fi
@@ -28,10 +54,23 @@ if !([ -e $(which rsync) ]) ; then echo "Please Install rsync"; exit 1; fi
 if !([ -e $(which mkfs.ext4) ]) ; then echo "Please Install e2fsprogs"; exit 1; fi
 
 . $LIHASSOURCEDIR/usr/lib/cluster-tools-lihas/drbd-functions.sh
-if [ ga$4 == ga ]; then
+if [ "x$VSNAME" == "x" ]; then
+  echo "Missing --name" >&2
+  print_help
+  exit 1
+fi
+if [ "x$SIZE" == "x" ]; then
+  echo "Missing --size" >&2
+  print_help
+  exit 1
+fi
+if [ "x$MNTPOINT" == "x" ]; then
+  echo "Missing --dir" >&2
+  print_help
+  exit 1
+fi
+if [ ga$DRBD == ga ]; then
   DRBD=$(drbdnextfree)
-else
-  DRBD=$4
 fi
 if [ $DRBD -gt 99 ]; then
   error "DRBD must be <100"
@@ -44,10 +83,11 @@ DUMMY=10
 
 RESNAME=vs_$VSNAME$(sed 's#/#_#g' <<< $MNTPOINT)
 
-lvcreate -L$SIZE -n $RESNAME $VG1
-ssh $HOST2 lvcreate -L$SIZE -n $RESNAME $VG2
-
-cat <<-EOF > /etc/drbd.d/$RESNAME.res
+if [ $CRMONLY -eq 0 ]; then
+  lvcreate -L$SIZE -n $RESNAME $VG1
+  ssh $HOST2 lvcreate -L$SIZE -n $RESNAME $VG2
+  
+  cat <<-EOF > /etc/drbd.d/$RESNAME.res
 resource $RESNAME {  
         protocol        C;
         syncer {
@@ -68,30 +108,31 @@ resource $RESNAME {
 }
 EOF
 
-rsync -rlHpogDtSvx /etc/drbd.d $HOST2:/etc/
-yes yes | drbdadm create-md $RESNAME
-drbdadm up $RESNAME
-ssh $HOST2 "(yes yes | drbdadm create-md $RESNAME && drbdadm up $RESNAME)"
+  rsync -rlHpogDtSvx /etc/drbd.d $HOST2:/etc/
+  yes yes | drbdadm create-md $RESNAME
+  drbdadm up $RESNAME
+  ssh $HOST2 "(yes yes | drbdadm create-md $RESNAME && drbdadm up $RESNAME)"
 
-drbdprimaryforce $DRBDVERSION $RESNAME
+  drbdprimaryforce $DRBDVERSION $RESNAME
 
-mkfs.ext4 -L $RESNAME /dev/drbd$DRBD
-mount /dev/drbd$DRBD /mnt
-#mv $VSERVER_BASE/$VSNAME$MNTPOINT/. /mnt/
-crm resource stop res_VServer-lihas_vs_$VSNAME
-while crm resource status res_VServer-lihas_vs_$VSNAME | grep -q 'is running'; do
-  sleep 1
-done
+  mkfs.ext4 -L $RESNAME /dev/drbd$DRBD
+  mount /dev/drbd$DRBD /mnt
+  #mv $VSERVER_BASE/$VSNAME$MNTPOINT/. /mnt/
+  crm resource stop res_VServer-lihas_vs_$VSNAME
+  while crm resource status res_VServer-lihas_vs_$VSNAME | grep -q 'is running'; do
+    sleep 1
+  done
 
-mkdir -p $VSERVER_BASE/$VSNAME$MNTPOINT
-rsync  -rlHpogDtSxAX --numeric-ids $VSERVER_BASE/$VSNAME$MNTPOINT/ /mnt/
-if [ $? -eq 0 ]; then
+  mkdir -p $VSERVER_BASE/$VSNAME$MNTPOINT
+  rsync  -rlHpogDtSxAX --numeric-ids $VSERVER_BASE/$VSNAME$MNTPOINT/ /mnt/
+  if [ $? -eq 0 ]; then
 	rm -rf $VSERVER_BASE/$VSNAME$MNTPOINT/*
+  fi
+
+  umount /mnt 
 fi
 
-umount /mnt 
-
-cat <<EOF | crm configure
+cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 primitive p_$RESNAME ocf:linbit:drbd \
         params drbd_resource="$RESNAME" stop_outdates_secondary=true unfence_extra_args=false \
         op start interval="0" timeout="240" \
@@ -106,7 +147,7 @@ ms ms_$RESNAME p_$RESNAME \
 commit
 EOF
 
-cat <<EOF | crm configure
+cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 primitive res_fs_$RESNAME ocf:heartbeat:Filesystem \
         params device="/dev/drbd$DRBD" directory="$VSERVER_BASE/$VSNAME$MNTPOINT" fstype="ext4" options="noatime,stripe=64,barrier=0" \
         operations \$id="res_fs_$RESNAME-operations" \
@@ -118,13 +159,18 @@ primitive res_fs_$RESNAME ocf:heartbeat:Filesystem \
 commit
 EOF
 
-cat <<EOF | crm configure
+cat <<EOF | if [ $CRMONLY -eq 0 ]; then crm configure; else cat; fi
 colocation col_grp_$VSNAME-ms_$RESNAME inf: grp_$VSNAME ms_$RESNAME:Master
 order ord_ms_$RESNAME-grp_$VSNAME inf: ms_$RESNAME:promote grp_$VSNAME:start
 commit
 EOF
-
-EDITOR="sed -i '/^group grp_'$VSNAME' /,/[^\\]/{s/ res_VServer/ res_fs_'$RESNAME' res_VServer/}'" crm configure edit
-crm resource manage res_fs_$RESNAME
-crm resource start res_VServer-lihas_vs_$VSNAME
-
+if  [ $CRMONLY -eq 0 ]; then
+  EDITOR="sed -i '/^group grp_'$VSNAME' /,/[^\\]/{s/ res_VServer/ res_fs_'$RESNAME' res_VServer/}'" crm configure edit
+  crm resource manage res_fs_$RESNAME
+  crm resource start res_VServer-lihas_vs_$VSNAME
+else
+  echo "EDITOR=\"sed -i '/^group grp_'$VSNAME' /,/[^\\]/{s/ res_VServer/ res_fs_'$RESNAME' res_VServer/}'\" crm configure edit"
+  echo crm resource manage res_fs_$RESNAME
+  echo crm resource start res_VServer-lihas_vs_$VSNAME
+fi
+# vim: ts=2 sw=2 sts=2 sr noet
