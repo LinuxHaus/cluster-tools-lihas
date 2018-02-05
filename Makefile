@@ -3,7 +3,7 @@ VERSION=$(shell git describe | sed 's/-/./g')
 
 UPLOADURL=http://ftp.lihas.de/cgi-bin/newpackage-generic
 ARCH=all
-COPYRIGHT=2012-2014 Adrian Reyer <are@lihas.de>
+COPYRIGHT=2012-2018 Adrian Reyer <are@lihas.de>
 DEBIAN_FULL_NAME=Adrian Reyer
 DEBIAN_EMAIL=are@lihas.de
 DEBIAN_HOMEPAGE=https://github.com/LinuxHaus/firewall-lihas/
